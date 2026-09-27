@@ -1,0 +1,25 @@
+---
+import Base from '../../layouts/Base.astro';
+import { sitio } from '../../config/sitio';
+
+const t = sitio.textos.busqueda;
+---
+
+<Base titulo={t.titulo} noindex migas={[{ nombre: t.titulo, ruta: '/busqueda/' }]}>
+  <section class="contenedor py-8">
+    <h1 class="text-3xl sm:text-4xl">{t.titulo}</h1>
+    <form data-form-busqueda role="search" class="mt-4 flex max-w-lg gap-2">
+      <label for="q" class="sr-only">{t.placeholder}</label>
+      <input id="q" name="q" data-input-busqueda type="search" placeholder={t.placeholder} class="min-h-11 flex-1 rounded-lg border border-borde px-3" autofocus />
+      <button type="submit" class="boton">Buscar</button>
+    </form>
+
+    <p data-estado-busqueda class="mt-6 text-texto-suave" aria-live="polite">Escribí para buscar productos.</p>
+    <div data-resultados class="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4"></div>
+  </section>
+</Base>
+
+<script>
+  import { iniciarBusqueda } from '../../scripts/busqueda';
+  iniciarBusqueda();
+</script>

@@ -1,0 +1,166 @@
+---
+import Base from '../../layouts/Base.astro';
+import TarjetaProducto from '../../components/TarjetaProducto.astro';
+import { obtenerTodosLosProductos, obtenerProductosRelacionados, rutaLocal } from '../../lib/tienda/productos';
+import { obtenerTodasLasCategorias, cadenaDeCategorias, rutaLocal as rutaCategoria } from '../../lib/tienda/categorias';
+import { nodoProducto } from '../../lib/schema';
+
+export async function getStaticPaths() {
+  const productos = await obtenerTodosLosProductos();
+  return productos.map((producto) => ({ params: { slug: producto.slug }, props: { producto } }));
+}
+
+const { producto } = Astro.props;
+const ruta = rutaLocal(producto.permalink);
+
+const [categorias, relacionados] = await Promise.all([
+  obtenerTodasLasCategorias(),
+  obtenerProductosRelacionados(producto, 8),
+]);
+
+const categoriaPrincipal = categorias.find((c) => c.id === producto.categories[0]?.id);
+const migas = categoriaPrincipal
+  ? [...cadenaDeCategorias(categorias, categoriaPrincipal).map((c) => ({ nombre: c.name, ruta: rutaCategoria(c.permalink) })), { nombre: producto.name, ruta }]
+  : [{ nombre: producto.name, ruta }];
+
+const atributoPeso = producto.attributes.find((a) => a.taxonomy === 'pa_peso' && a.has_variations);
+const unidad = 10 ** producto.prices.currency_minor_unit;
+
+function precioTexto(centavos: string) {
+  const monto = (Number(centavos) / unidad).toLocaleString('es-AR', { minimumFractionDigits: 2 });
+  return `${producto.prices.currency_prefix}${monto}${producto.prices.currency_suffix}`;
+}
+
+const precioInicial = producto.prices.price_range ? producto.prices.price_range.min_amount : producto.prices.price;
+const idInicial = atributoPeso && producto.variations[0] ? producto.variations[0].id : producto.id;
+---
+
+<Base
+  titulo={producto.name}
+  descripcion={producto.short_description.replace(/<[^>]+>/g, '') || undefined}
+  imagen={producto.images[0]?.src}
+  imagenAlt={producto.images[0]?.alt || producto.name}
+  migas={migas}
+  ldExtra={[nodoProducto(producto, ruta)]}
+>
+  <section class="contenedor py-6" data-producto>
+    <div class="grid gap-8 lg:grid-cols-2">
+      <div>
+        <div class="aspect-square overflow-hidden rounded-2xl bg-fondo-suave">
+          {
+            producto.images[0] && (
+              <img
+                data-imagen-principal
+                src={producto.images[0].src}
+                srcset={producto.images[0].srcset}
+                sizes="(min-width: 1024px) 44vw, 92vw"
+                alt={producto.images[0].alt || producto.name}
+                width="600"
+                height="600"
+                loading="eager"
+                fetchpriority="high"
+                class="h-full w-full object-contain p-6"
+              />
+            )
+          }
+        </div>
+        {
+          producto.images.length > 1 && (
+            <div class="mt-3 flex gap-2 overflow-x-auto">
+              {producto.images.map((img) => (
+                <button
+                  type="button"
+                  data-miniatura={img.src}
+                  data-srcset={img.srcset}
+                  class="h-16 w-16 shrink-0 overflow-hidden rounded-lg border border-borde bg-fondo-suave transition-colors hover:border-primario"
+                >
+                  <img src={img.thumbnail || img.src} alt="" width="64" height="64" loading="lazy" class="h-full w-full object-contain p-1" />
+                </button>
+              ))}
+            </div>
+          )
+        }
+      </div>
+
+      <div>
+        {producto.brands[0] && <p class="font-medium text-texto-suave">{producto.brands[0].name}</p>}
+        <h1 class="mt-1 text-3xl sm:text-4xl">{producto.name}</h1>
+        <p class="mt-3 text-3xl font-bold text-primario" data-precio>{precioTexto(precioInicial)}</p>
+        <p class="mt-1 text-sm font-medium" data-stock>{producto.is_in_stock ? 'En stock' : 'Sin stock'}</p>
+
+        {producto.short_description && <div class="prosa mt-4" set:html={producto.short_description} />}
+
+        {
+          atributoPeso && (
+            <div class="mt-6">
+              <p class="font-semibold">Peso</p>
+              <div class="mt-2 flex flex-wrap gap-2">
+                {atributoPeso.terms.map((termino, i) => {
+                  const variacion = producto.variations.find((v) => v.attributes.some((a) => a.value === termino.name));
+                  return (
+                    <button
+                      type="button"
+                      data-variante={variacion?.id ?? producto.id}
+                      aria-pressed={i === 0 ? 'true' : 'false'}
+                      class:list={['min-h-11 rounded-lg border-2 px-4 font-medium transition-colors', i === 0 ? 'border-primario text-primario' : 'border-borde hover:border-primario']}
+                    >
+                      {termino.name}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )
+        }
+
+        <div class="mt-6 flex items-center gap-3">
+          <div class="flex items-center rounded-lg border border-borde">
+            <button type="button" data-restar-cantidad class="flex h-11 w-11 items-center justify-center text-lg" aria-label="Restar">−</button>
+            <input data-cantidad-input type="number" min="1" value="1" class="h-11 w-14 border-x border-borde text-center [appearance:textfield]" />
+            <button type="button" data-sumar-cantidad class="flex h-11 w-11 items-center justify-center text-lg" aria-label="Sumar">+</button>
+          </div>
+          <button type="button" data-agregar-carrito data-id={idInicial} disabled={!producto.is_in_stock} class="boton flex-1 disabled:cursor-not-allowed disabled:opacity-50">
+            {producto.is_in_stock ? 'Añadir al carrito' : 'Sin stock'}
+          </button>
+        </div>
+
+        {producto.description && producto.description !== producto.short_description && <div class="prosa mt-8" set:html={producto.description} />}
+      </div>
+    </div>
+  </section>
+
+  {
+    relacionados.length > 0 && (
+      <section class="contenedor py-10" data-reveal>
+        <h2 class="text-2xl sm:text-3xl">También te puede interesar</h2>
+        <div class="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+          {relacionados.map((p) => (
+            <TarjetaProducto producto={p} />
+          ))}
+        </div>
+      </section>
+    )
+  }
+</Base>
+
+<script>
+  import { iniciarSelectorVariantes } from '../../scripts/producto-variantes';
+  iniciarSelectorVariantes();
+
+  const principal = document.querySelector<HTMLImageElement>('[data-imagen-principal]');
+  document.querySelectorAll<HTMLButtonElement>('[data-miniatura]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      if (!principal) return;
+      principal.src = btn.dataset.miniatura!;
+      principal.srcset = btn.dataset.srcset ?? '';
+    });
+  });
+
+  const input = document.querySelector<HTMLInputElement>('[data-cantidad-input]');
+  document.querySelector('[data-sumar-cantidad]')?.addEventListener('click', () => {
+    if (input) input.value = String(Number(input.value) + 1);
+  });
+  document.querySelector('[data-restar-cantidad]')?.addEventListener('click', () => {
+    if (input) input.value = String(Math.max(1, Number(input.value) - 1));
+  });
+</script>
