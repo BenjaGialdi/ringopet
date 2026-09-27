@@ -26,13 +26,14 @@ const t = sitio.textos.inicio;
         </div>
       </div>
       {
-        principales.slice(0, 2).map((c) => (
+        principales.slice(0, 2).map((c, i) => (
           <a href={rutaCategoria(c.permalink)} class="group relative flex aspect-[4/3] items-end overflow-hidden rounded-2xl bg-fondo-suave sm:aspect-auto">
             {c.image && (
               <img
                 src={c.image.src}
                 alt={c.image.alt || c.name}
-                loading="lazy"
+                loading="eager"
+                fetchpriority={i === 0 ? 'high' : 'auto'}
                 decoding="async"
                 class="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
               />

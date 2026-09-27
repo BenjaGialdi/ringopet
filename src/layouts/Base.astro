@@ -27,7 +27,7 @@ interface Props {
 const { titulo, descripcion, imagen, imagenAlt, noindex, tipoOg, migas, ldExtra = [] } = Astro.props;
 
 const c = sitio.colores;
-const variables = `:root{--c-primario:${c.primario};--c-sobre-primario:${c.sobrePrimario};--c-acento:${c.acento};--c-fondo:${c.fondo};--c-fondo-suave:${c.fondoSuave};--c-texto:${c.texto};--c-texto-suave:${c.textoSuave};--c-borde:${c.borde}}`;
+const variables = `:root{--c-primario:${c.primario};--c-primario-oscuro:${c.primarioOscuro};--c-sobre-primario:${c.sobrePrimario};--c-acento:${c.acento};--c-fondo:${c.fondo};--c-fondo-suave:${c.fondoSuave};--c-texto:${c.texto};--c-texto-suave:${c.textoSuave};--c-borde:${c.borde}}`;
 
 const migasCompletas = migas ? [{ nombre: 'Inicio', ruta: '/' }, ...migas] : undefined;
 const nodos = [

@@ -22,7 +22,7 @@ function tarjeta(p: ProductoBusqueda): string {
       </div>
       <div class="p-3">
         <p class="line-clamp-2 text-sm font-medium">${p.name}</p>
-        <p class="mt-1 font-semibold text-primario">${p.prices.currency_prefix}${precio}${p.prices.currency_suffix}</p>
+        <p class="mt-1 font-semibold text-primario-oscuro">${p.prices.currency_prefix}${precio}${p.prices.currency_suffix}</p>
       </div>
     </a>`;
 }

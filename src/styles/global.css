@@ -3,6 +3,7 @@
 /* Las variables --c-* se definen en el <head> desde src/config/sitio.ts (ver layouts/Base.astro). */
 @theme inline {
   --color-primario: var(--c-primario);
+  --color-primario-oscuro: var(--c-primario-oscuro);
   --color-sobre-primario: var(--c-sobre-primario);
   --color-acento: var(--c-acento);
   --color-fondo: var(--c-fondo);
@@ -43,11 +44,12 @@
   .contenedor {
     @apply mx-auto w-full max-w-6xl px-4 sm:px-6;
   }
+  /* Fondo primario-oscuro (no primario) para que el texto blanco llegue a 4.5:1 de contraste (AA). */
   .boton {
-    @apply inline-flex min-h-11 items-center justify-center rounded-lg bg-primario px-5 py-2.5 font-semibold text-sobre-primario no-underline transition-colors hover:brightness-110;
+    @apply inline-flex min-h-11 items-center justify-center rounded-lg bg-primario-oscuro px-5 py-2.5 font-semibold text-sobre-primario no-underline transition-colors hover:brightness-110;
   }
   .boton-borde {
-    @apply inline-flex min-h-11 items-center justify-center rounded-lg border-2 border-primario px-5 py-2.5 font-semibold text-primario no-underline transition-colors hover:bg-fondo-suave;
+    @apply inline-flex min-h-11 items-center justify-center rounded-lg border-2 border-primario px-5 py-2.5 font-semibold text-primario-oscuro no-underline transition-colors hover:bg-fondo-suave;
   }
   .prosa {
     @apply max-w-prose text-lg leading-relaxed;
@@ -68,7 +70,7 @@
     @apply list-decimal pl-6;
   }
   .prosa a {
-    @apply text-primario underline underline-offset-2;
+    @apply text-primario-oscuro underline underline-offset-2;
   }
 }
 

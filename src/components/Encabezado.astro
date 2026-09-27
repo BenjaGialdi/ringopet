@@ -21,12 +21,12 @@ const enlacesInfo = [
     <button
       type="button"
       data-abrir-menu
-      class="flex min-h-11 items-center gap-2 rounded-lg border-2 border-primario px-3 font-semibold text-primario transition-colors hover:bg-fondo-suave"
+      class="flex min-h-11 items-center gap-2 rounded-lg border-2 border-primario px-3 font-semibold text-primario-oscuro transition-colors hover:bg-fondo-suave"
     >
       <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true" focusable="false">
         <path d="M4 7h16M4 12h16M4 17h16" />
       </svg>
-      <span class="hidden sm:inline">Categorías</span>
+      <span class="sr-only sm:not-sr-only">Categorías</span>
     </button>
 
     <a href="/" class="shrink-0">
@@ -166,7 +166,7 @@ const enlacesInfo = [
     <div class="border-t border-borde p-4">
       <div class="flex items-center justify-between text-lg font-semibold">
         <span>Subtotal</span>
-        <span data-carrito-subtotal class="text-primario">$ 0,00</span>
+        <span data-carrito-subtotal class="text-primario-oscuro">$ 0,00</span>
       </div>
       <a href={sitio.rutasWoo.finalizarCompra} class="boton mt-4 w-full">Finalizar compra</a>
     </div>

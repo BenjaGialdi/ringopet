@@ -44,7 +44,7 @@ function pintarCarrito(carrito: Carrito) {
               <button type="button" class="ml-auto text-sm text-texto-suave underline" data-quitar>Quitar</button>
             </div>
           </div>
-          <p class="whitespace-nowrap font-semibold text-primario">${formatearPrecio(item.totals.line_total, item.totals.currency_minor_unit, carrito.totals.currency_prefix, carrito.totals.currency_suffix)}</p>
+          <p class="whitespace-nowrap font-semibold text-primario-oscuro">${formatearPrecio(item.totals.line_total, item.totals.currency_minor_unit, carrito.totals.currency_prefix, carrito.totals.currency_suffix)}</p>
         </li>`;
     })
     .join('');

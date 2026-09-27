@@ -27,7 +27,7 @@ const listaEtapas = [...etapas.entries()].sort((a, b) => a[1].localeCompare(b[1]
 <aside data-filtros class="w-full shrink-0 lg:w-64">
   <div class="flex items-center justify-between">
     <h2 class="text-lg">Filtros</h2>
-    <button type="button" data-limpiar-filtros class="text-sm text-primario underline underline-offset-2">Limpiar</button>
+    <button type="button" data-limpiar-filtros class="text-sm text-primario-oscuro underline underline-offset-2">Limpiar</button>
   </div>
 
   {
@@ -55,7 +55,7 @@ const listaEtapas = [...etapas.entries()].sort((a, b) => a[1].localeCompare(b[1]
         <ul class="mt-2 flex flex-wrap gap-2">
           {listaPesos.map(([slug, nombre]) => (
             <li>
-              <label class="flex min-h-9 cursor-pointer items-center gap-1 rounded-lg border border-borde px-2 text-sm has-checked:border-primario has-checked:text-primario">
+              <label class="flex min-h-9 cursor-pointer items-center gap-1 rounded-lg border border-borde px-2 text-sm has-checked:border-primario has-checked:text-primario-oscuro">
                 <input type="checkbox" data-filtro-peso value={slug} class="sr-only" />
                 {nombre}
               </label>
