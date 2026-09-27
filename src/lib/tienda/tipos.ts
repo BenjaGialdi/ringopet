@@ -91,21 +91,127 @@ export interface ItemCarrito {
   key: string;
   id: number;
   quantity: number;
+  quantity_limits: { minimum: number; maximum: number; multiple_of: number; editable: boolean };
   name: string;
   short_description: string;
+  permalink: string;
   images: ImagenProducto[];
   prices: Precios;
-  totals: { line_total: string; line_subtotal: string; currency_minor_unit: number };
+  totals: { line_total: string; line_subtotal: string; currency_minor_unit: number; currency_prefix: string; currency_suffix: string };
   variation: { attribute: string; value: string }[];
+}
+
+export interface CuponCarrito {
+  code: string;
+  totals: { total_discount: string };
+}
+
+export interface TotalesCarrito {
+  total_items: string;
+  total_discount: string;
+  total_shipping: string | null;
+  total_price: string;
+  currency_minor_unit: number;
+  currency_prefix: string;
+  currency_suffix: string;
+}
+
+export interface TarifaEnvio {
+  rate_id: string;
+  name: string;
+  price: string;
+  selected: boolean;
+}
+
+export interface ErrorCarrito {
+  code: string;
+  message: string;
 }
 
 export interface Carrito {
   items: ItemCarrito[];
   items_count: number;
-  totals: {
-    total_price: string;
-    currency_minor_unit: number;
-    currency_prefix: string;
-    currency_suffix: string;
-  };
+  coupons: CuponCarrito[];
+  totals: TotalesCarrito;
+  needs_payment: boolean;
+  needs_shipping: boolean;
+  has_calculated_shipping: boolean;
+  shipping_rates: { package_id: number; shipping_rates: TarifaEnvio[] }[];
+  payment_methods: string[];
+  errors: ErrorCarrito[];
+}
+
+export interface DireccionCarrito {
+  first_name: string;
+  last_name: string;
+  address_1: string;
+  address_2?: string;
+  city: string;
+  state: string;
+  postcode: string;
+  country: string;
+  phone: string;
+  email?: string;
+}
+
+export interface RespuestaCheckout {
+  order_id: number;
+  order_key: string;
+  status: string;
+  payment_result: {
+    payment_status: string;
+    redirect_url: string;
+  } | null;
+}
+
+export interface TurnoEntrega {
+  valor: string;
+  etiqueta: string;
+}
+
+export interface DiaEntrega {
+  valor: string;
+  iso: string;
+  etiqueta: string;
+  turnos: TurnoEntrega[];
+}
+
+export interface Disponibilidad {
+  activo: boolean;
+  fecha_obligatoria: boolean;
+  turno_obligatorio: boolean;
+  con_turnos: boolean;
+  etiqueta_fecha: string;
+  etiqueta_turno: string;
+  nota: string;
+  dias: DiaEntrega[];
+}
+
+export interface ItemPedido {
+  nombre: string;
+  cantidad: number;
+  total: string;
+  imagen: string | null;
+  permalink: string | null;
+}
+
+export interface CuentaBancaria {
+  titular: string;
+  banco: string;
+  cvu: string;
+  alias: string;
+}
+
+export interface DetallePedido {
+  numero: string;
+  estado: string;
+  estado_label: string;
+  fecha: string;
+  metodo_pago: string;
+  metodo_pago_titulo: string;
+  total: string;
+  moneda: string;
+  items: ItemPedido[];
+  entrega: { etiqueta_fecha: string; fecha: string; etiqueta_turno: string; turno: string } | null;
+  transferencia: CuentaBancaria | null;
 }

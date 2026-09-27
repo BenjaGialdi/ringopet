@@ -1,49 +1,37 @@
 /**
- * Carrito: siempre contra la Store API del mismo dominio (rutas relativas), nunca
- * contra WOO_URL, porque en producción corre en el navegador del cliente y el
- * carrito tiene que ser el que después ve /finalizar-compra/ de WooCommerce.
+ * Carrito: siempre contra la Store API del mismo dominio (ver api-navegador.ts).
  */
-import type { Carrito } from './tipos';
-
-const BASE = '/wp-json/wc/store/v1';
-let nonce = '';
-
-function leerNonce(respuesta: Response) {
-  const valor = respuesta.headers.get('Nonce') ?? respuesta.headers.get('X-WC-Store-API-Nonce');
-  if (valor) nonce = valor;
-}
-
-async function llamar(ruta: string, opciones: RequestInit = {}): Promise<Carrito> {
-  const respuesta = await fetch(`${BASE}${ruta}`, {
-    ...opciones,
-    credentials: 'same-origin',
-    headers: {
-      'Content-Type': 'application/json',
-      Accept: 'application/json',
-      ...(nonce ? { Nonce: nonce } : {}),
-      ...opciones.headers,
-    },
-  });
-  leerNonce(respuesta);
-  if (!respuesta.ok) {
-    const cuerpo = await respuesta.json().catch(() => null);
-    throw new Error(cuerpo?.message ?? `El carrito respondió ${respuesta.status}`);
-  }
-  return respuesta.json();
-}
+import { llamarApi } from './api-navegador';
+import type { Carrito, DireccionCarrito } from './tipos';
 
 export function obtenerCarrito(): Promise<Carrito> {
-  return llamar('/cart');
+  return llamarApi('/cart');
 }
 
 export function agregarAlCarrito(id: number, cantidad = 1): Promise<Carrito> {
-  return llamar('/cart/add-item', { method: 'POST', body: JSON.stringify({ id, quantity: cantidad }) });
+  return llamarApi('/cart/add-item', { method: 'POST', body: JSON.stringify({ id, quantity: cantidad }) });
 }
 
 export function actualizarCantidad(key: string, cantidad: number): Promise<Carrito> {
-  return llamar('/cart/update-item', { method: 'POST', body: JSON.stringify({ key, quantity: cantidad }) });
+  return llamarApi('/cart/update-item', { method: 'POST', body: JSON.stringify({ key, quantity: cantidad }) });
 }
 
 export function quitarDelCarrito(key: string): Promise<Carrito> {
-  return llamar('/cart/remove-item', { method: 'POST', body: JSON.stringify({ key }) });
+  return llamarApi('/cart/remove-item', { method: 'POST', body: JSON.stringify({ key }) });
+}
+
+export function aplicarCupon(codigo: string): Promise<Carrito> {
+  return llamarApi('/cart/apply-coupon', { method: 'POST', body: JSON.stringify({ code: codigo }) });
+}
+
+export function quitarCupon(codigo: string): Promise<Carrito> {
+  return llamarApi('/cart/remove-coupon', { method: 'POST', body: JSON.stringify({ code: codigo }) });
+}
+
+/** Carga la dirección en la sesión y calcula el envío (en RingoPet, siempre gratis dentro de la zona). */
+export function actualizarCliente(direccion: DireccionCarrito): Promise<Carrito> {
+  return llamarApi('/cart/update-customer', {
+    method: 'POST',
+    body: JSON.stringify({ billing_address: direccion, shipping_address: direccion }),
+  });
 }
