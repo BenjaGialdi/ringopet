@@ -27,7 +27,25 @@ const localidades = [
       Tu carrito está vacío. <a href="/" class="text-primario-oscuro underline underline-offset-2">Ver productos</a>
     </p>
 
-    <form data-form-checkout data-checkout-form hidden class="mt-6 grid gap-8 lg:grid-cols-[1fr_380px]" novalidate>
+    <form data-form-checkout data-checkout-form hidden class="mt-6 lg:grid lg:grid-cols-[1fr_380px] lg:items-start lg:gap-8" novalidate>
+      <!-- Resumen en celular: plegado arriba del formulario, mostrando el total. -->
+      <details class="mb-6 rounded-xl border border-borde lg:hidden" data-resumen-instancia>
+        <summary class="flex min-h-11 cursor-pointer items-center justify-between p-4 font-semibold marker:content-none">
+          <span>Ver resumen del pedido</span>
+          <span data-resumen-total-resumido>$ 0,00</span>
+        </summary>
+        <div class="border-t border-borde p-4" data-resumen-cuerpo>
+          <ul data-resumen-items class="divide-y divide-borde"></ul>
+          <dl class="mt-3 space-y-2 border-t border-borde pt-3 text-sm">
+            <div class="flex justify-between"><dt>Subtotal</dt><dd data-resumen-subtotal>$ 0,00</dd></div>
+            <div class="flex justify-between" data-resumen-fila-descuento hidden><dt>Descuento</dt><dd data-resumen-descuento class="text-primario-oscuro">$ 0,00</dd></div>
+            <ul data-resumen-fees class="contents"></ul>
+            <div class="flex justify-between" data-resumen-fila-envio hidden><dt>Envío</dt><dd data-resumen-envio></dd></div>
+            <div class="flex justify-between text-base font-semibold text-texto"><dt>Total</dt><dd data-resumen-total>$ 0,00</dd></div>
+          </dl>
+        </div>
+      </details>
+
       <div class="space-y-8">
         <section>
           <h2 class="text-xl">Tus datos</h2>
@@ -45,7 +63,7 @@ const localidades = [
               <input id="phone" name="phone" type="tel" required class="mt-1 min-h-11 w-full rounded-lg border border-borde px-3" />
             </div>
             <div data-campo="email">
-              <label for="email" class="text-sm font-medium">Email *</label>
+              <label for="email" class="text-sm font-medium">Correo electrónico *</label>
               <input id="email" name="email" type="email" required class="mt-1 min-h-11 w-full rounded-lg border border-borde px-3" />
             </div>
           </div>
@@ -76,11 +94,20 @@ const localidades = [
           </div>
         </section>
 
-        <section data-campo="fecha">
-          <h2 class="text-xl">Fecha de entrega *</h2>
-          <div data-dias-entrega class="mt-3 flex flex-wrap gap-2"></div>
-          <h2 class="mt-5 text-xl" data-campo="turno">Turno de entrega *</h2>
-          <div data-turnos-entrega class="mt-3 flex flex-wrap gap-2"></div>
+        <section>
+          <h2 class="text-xl">Entrega programada</h2>
+          <div class="mt-3 grid gap-4 sm:grid-cols-2">
+            <div data-campo="fecha">
+              <label for="fecha-entrega" class="text-sm font-medium">Fecha de entrega *</label>
+              <input id="fecha-entrega" data-input-fecha type="text" placeholder="Elegí una fecha" readonly required class="mt-1 min-h-11 w-full rounded-lg border border-borde bg-fondo px-3" />
+            </div>
+            <div data-campo="turno">
+              <label for="turno-entrega" class="text-sm font-medium">Turno de entrega *</label>
+              <select id="turno-entrega" data-select-turno required disabled class="mt-1 min-h-11 w-full rounded-lg border border-borde px-3 disabled:bg-fondo-suave disabled:text-texto-suave">
+                <option value="">Elegí un turno</option>
+              </select>
+            </div>
+          </div>
           <p data-nota-entrega class="mt-3 text-sm text-texto-suave"></p>
         </section>
 
@@ -88,26 +115,31 @@ const localidades = [
           <label for="notas" class="text-xl">Notas del pedido (opcional)</label>
           <textarea id="notas" name="customer_note" rows="3" class="mt-3 w-full rounded-lg border border-borde px-3 py-2"></textarea>
         </section>
-      </div>
 
-      <aside class="h-fit space-y-5 rounded-xl border border-borde p-5">
-        <div>
-          <h2 class="text-lg">Tu pedido</h2>
-          <ul data-resumen-items class="mt-2 divide-y divide-borde"></ul>
-          <div class="mt-2 flex justify-between border-t border-borde pt-2 text-base font-semibold">
-            <span>Total</span>
-            <span data-resumen-total>$ 0,00</span>
-          </div>
-        </div>
-
-        <div>
-          <h2 class="text-lg">Medio de pago</h2>
-          <div data-medios-pago class="mt-2 space-y-2"></div>
-        </div>
+        <section>
+          <h2 class="text-xl">Medio de pago</h2>
+          <div data-medios-pago class="mt-3 space-y-2"></div>
+        </section>
 
         <div data-checkout-errores aria-live="polite" class="space-y-2"></div>
 
-        <button type="submit" data-boton-pagar class="boton w-full disabled:cursor-not-allowed disabled:opacity-50">Pagar pedido</button>
+        <button type="submit" data-boton-pagar class="boton w-full disabled:cursor-not-allowed disabled:opacity-50 lg:hidden">Pagar pedido</button>
+      </div>
+
+      <aside class="hidden h-fit space-y-5 rounded-xl border border-borde p-5 lg:sticky lg:top-24 lg:block" data-resumen-instancia>
+        <div data-resumen-cuerpo>
+          <h2 class="text-lg">Tu pedido</h2>
+          <ul data-resumen-items class="mt-2 divide-y divide-borde"></ul>
+          <dl class="mt-2 space-y-2 border-t border-borde pt-2 text-sm">
+            <div class="flex justify-between"><dt>Subtotal</dt><dd data-resumen-subtotal>$ 0,00</dd></div>
+            <div class="flex justify-between" data-resumen-fila-descuento hidden><dt>Descuento</dt><dd data-resumen-descuento class="text-primario-oscuro">$ 0,00</dd></div>
+            <ul data-resumen-fees class="contents"></ul>
+            <div class="flex justify-between" data-resumen-fila-envio hidden><dt>Envío</dt><dd data-resumen-envio></dd></div>
+            <div class="flex justify-between text-base font-semibold text-texto"><dt>Total</dt><dd data-resumen-total>$ 0,00</dd></div>
+          </dl>
+        </div>
+
+        <button type="submit" data-boton-pagar-escritorio class="boton w-full disabled:cursor-not-allowed disabled:opacity-50">Pagar pedido</button>
       </aside>
     </form>
   </section>
