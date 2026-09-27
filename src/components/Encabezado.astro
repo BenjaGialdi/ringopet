@@ -30,7 +30,7 @@ const enlacesInfo = [
     </button>
 
     <a href="/" class="shrink-0">
-      <Image src={logo} alt={sitio.logo.alt} widths={[160, 320]} sizes="160px" priority class="h-9 w-auto sm:h-10" />
+      <Image src={logo} alt={sitio.logo.alt} width={160} height={56} widths={[160, 320]} sizes="160px" priority class="h-9 w-auto aspect-[2048/714] sm:h-10" />
     </a>
 
     <form action="/busqueda/" method="get" role="search" class="flex min-w-0 flex-1 items-center">
@@ -49,7 +49,7 @@ const enlacesInfo = [
       </button>
     </form>
 
-    <a href={sitio.rutasWoo.miCuenta} class="hidden min-h-11 shrink-0 items-center gap-2 font-medium text-texto hover:text-primario md:flex">
+    <a href={sitio.rutas.miCuenta} class="hidden min-h-11 shrink-0 items-center gap-2 font-medium text-texto hover:text-primario md:flex">
       <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
         <circle cx="12" cy="8" r="4" /><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7" />
       </svg>
@@ -140,7 +140,7 @@ const enlacesInfo = [
           ))
         }
         <li data-r style={`transition-delay:${(principales.length + enlacesInfo.length) * 60}ms`}>
-          <a href={sitio.rutasWoo.miCuenta} class="block min-h-11 rounded-lg px-2 py-2.5 font-semibold hover:bg-fondo-suave">Mi cuenta</a>
+          <a href={sitio.rutas.miCuenta} class="block min-h-11 rounded-lg px-2 py-2.5 font-semibold hover:bg-fondo-suave">Mi cuenta</a>
         </li>
       </ul>
     </nav>
@@ -168,7 +168,8 @@ const enlacesInfo = [
         <span>Subtotal</span>
         <span data-carrito-subtotal class="text-primario-oscuro">$ 0,00</span>
       </div>
-      <a href={sitio.rutasWoo.finalizarCompra} class="boton mt-4 w-full">Finalizar compra</a>
+      <a href="/carrito/" class="boton-borde mt-4 w-full">Ver carrito</a>
+      <a href={sitio.rutas.finalizarCompra} class="boton mt-3 w-full">Finalizar compra</a>
     </div>
   </div>
 </dialog>

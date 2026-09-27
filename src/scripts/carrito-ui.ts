@@ -4,13 +4,8 @@
  * [data-agregar-carrito][data-id] agrega ese producto, sin importar en qué página está.
  */
 import { obtenerCarrito, agregarAlCarrito, actualizarCantidad, quitarDelCarrito } from '../lib/tienda/carrito';
+import { formatearPrecio } from '../lib/moneda';
 import type { Carrito } from '../lib/tienda/tipos';
-
-function formatearPrecio(centavos: string, minorUnit: number, prefijo: string, sufijo: string) {
-  const monto = Number(centavos) / 10 ** minorUnit;
-  const texto = monto.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  return `${prefijo}${texto}${sufijo}`;
-}
 
 function pintarContadores(carrito: Carrito) {
   document.querySelectorAll<HTMLElement>('[data-contador-carrito]').forEach((el) => {

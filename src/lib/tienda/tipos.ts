@@ -133,6 +133,8 @@ export interface Carrito {
   items_count: number;
   coupons: CuponCarrito[];
   totals: TotalesCarrito;
+  shipping_address: DireccionCarrito | null;
+  billing_address: DireccionCarrito | null;
   needs_payment: boolean;
   needs_shipping: boolean;
   has_calculated_shipping: boolean;

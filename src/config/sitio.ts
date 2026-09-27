@@ -73,9 +73,8 @@ export interface Sitio {
     searchConsole: string;
   };
 
-  /** Rutas de WooCommerce que Astro nunca genera ni pisa (ver public/.htaccess). */
-  rutasWoo: {
-    carrito: string;
+  /** finalizarCompra ya es una página de Astro (ver src/pages/finalizar-compra/); miCuenta sigue en WordPress. */
+  rutas: {
     finalizarCompra: string;
     miCuenta: string;
   };
@@ -143,8 +142,7 @@ export const sitio: Sitio = {
 
   analitica: { googleAnalytics: '', searchConsole: '' },
 
-  rutasWoo: {
-    carrito: '/carrito/',
+  rutas: {
     finalizarCompra: '/finalizar-compra/',
     miCuenta: '/mi-cuenta/',
   },

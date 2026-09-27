@@ -17,7 +17,7 @@ const enlacesUtiles = [
 <footer class="mt-16 border-t border-borde bg-fondo-suave">
   <div class="contenedor grid gap-8 py-10 sm:grid-cols-2 lg:grid-cols-4">
     <div>
-      <Image src={logo} alt={sitio.logo.alt} widths={[140, 280]} sizes="140px" class="h-10 w-auto" />
+      <Image src={logo} alt={sitio.logo.alt} width={140} height={49} widths={[140, 280]} sizes="140px" class="h-10 w-auto aspect-[2048/714]" />
       <p class="mt-3 max-w-xs text-texto-suave">{sitio.descripcion}</p>
       {
         sitio.redes.length > 0 && (
