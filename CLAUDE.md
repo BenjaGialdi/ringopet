@@ -38,6 +38,7 @@ Ningún componente ni página llama a la Store API directo. Todo pasa por acá:
 | `productos.ts` | `obtenerTodosLosProductos` (908, con y sin stock, para generar TODAS las páginas), `obtenerProductosEnStock`, `obtenerProductoPorSlug`, `obtenerProductosPorCategoria`/`obtenerProductosRelacionados` (solo con stock, para listados), `obtenerEnOferta`, `obtenerMasPedidos`. Decodifica entidades HTML de los nombres (la Store API devuelve `&#8211;` en vez de `–`) |
 | `categorias.ts` | árbol de categorías, migas de pan, orden Perros/Gatos primero |
 | `carrito.ts` | **rutas relativas** (`/wp-json/...`), corre en el navegador del cliente, nunca contra `WOO_URL` |
+| `wordpress.ts` | API core de WordPress (`wp/v2`, no `wc/store`): fecha real de modificación de cada producto y páginas de WordPress a indexar. Solo lo usa `sitemap.xml.ts` |
 | `tipos.ts` | tipos de la Store API que usamos |
 
 `WOO_URL` (variable de entorno, `.env` en local / variable de repo en GitHub
@@ -120,6 +121,71 @@ de "imagen destacada" de un producto.
 
 El logo y el crédito de Fluxa sí van por `astro:assets` (son un puñado de
 archivos fijos, ahí Astro optimiza gratis).
+
+## SEO
+
+- **Sitemap** (`src/pages/sitemap.xml.ts`): uno solo, hecho a mano (no
+  `@astrojs/sitemap`, que no da lastmod real ni imágenes). Junta:
+  - la portada,
+  - las 35 categorías (con `<lastmod>` = la fecha del producto más nuevo
+    de esa categoría),
+  - los 908 productos —**con y sin stock**, un producto sin stock sigue
+    indexado, solo deja de listarse (ver "Productos sin stock")—, cada uno
+    con su `<lastmod>` real (fecha de modificación en WordPress, vía
+    `wp/v2/product`, que a diferencia de la Store API no filtra por stock)
+    y hasta 5 `<image:image>` con las fotos del producto,
+  - las páginas de WordPress que siguen vivas (`wp/v2/pages`), salvo
+    `/carrito/`, `/finalizar-compra/` y `/mi-cuenta/` (ya llevan
+    `noindex, nofollow` propio de WooCommerce, verificado) y la home de
+    WordPress (la reemplaza la portada de Astro).
+
+  **Ojo**: de las páginas de WordPress que trajo la API, cuatro son
+  contenido real (`/mayorista/`, `/envios-y-preguntas-frecuentes/`,
+  `/contacto/`, `/about-us/`) pero otras cinco tienen toda la pinta de ser
+  demo/utilitarias del tema o de un plugin y **quedaron incluidas en el
+  sitemap tal cual pediste** (excluir solo carrito/pago/mi cuenta): `/driver/`,
+  `/tracking/`, `/wishlist/`, `/ideas-for-breakfest/` (título "Blog", contenido
+  de ejemplo de WoodMart) y `/shop/` (un archivo de WooCommerce genérico,
+  no la navegación real del sitio). Si no son páginas que querés indexadas,
+  lo más prolijo es despublicarlas o borrarlas en WordPress (Páginas): el
+  sitemap las saca solas en el próximo build, sin tocar código.
+
+- **`robots.txt`** (`src/pages/robots.txt.ts`): permite todo por defecto,
+  incluido `/wp-json/` y `/wp-content/` (ahí están la API que lee Astro y
+  las imágenes). Bloquea `/carrito/`, `/finalizar-compra/`, `/mi-cuenta/` y
+  `/wp-admin/` (con `/wp-admin/admin-ajax.php` permitido, lo usan temas y
+  plugins desde el front). Apunta a `/sitemap.xml`.
+
+- **Sitemap nativo de WordPress apagado por el plugin**: `wp-plugin/ringopet-regenerar/`
+  agrega `add_filter('wp_sitemaps_enabled', '__return_false')`, así
+  `/wp-sitemap.xml` no compite con el de Astro. Verificado en
+  `prueba.ringopet.com.ar`: hoy no hay ningún plugin de SEO instalado (no
+  aparece ningún namespace de Yoast/Rank Math/AIOSEO en `/wp-json/`) y
+  `/wp-sitemap.xml` y `/sitemap_index.xml` ya daban 404 antes de tocar nada.
+  Si el día de mañana se instala un plugin de SEO, hay que apagar su propio
+  sitemap desde los ajustes de ese plugin (el filtro del plugin de acá solo
+  cubre el sitemap nativo de WordPress).
+
+- **JSON-LD `Product`** (`src/lib/schema.ts`): `availability` sale de
+  `is_in_stock` (`InStock`/`OutOfStock`), ya estaba bien desde la vuelta
+  anterior.
+
+- **Título, descripción, canonical, Open Graph, un solo `h1`, migas
+  (`BreadcrumbList`)**: ya estaban resueltos en `Seo.astro`/`Base.astro`
+  desde el armado inicial, uno por página (portada, categoría, producto).
+  Revisado de nuevo en esta vuelta, sin cambios.
+
+- **Paginación de categorías**: no hay URLs separadas por página
+  (`/pagina/2/` como en WooCommerce). El "Mostrar más" es solo visual: el
+  HTML de la categoría trae **todos** los productos de esa categoría desde
+  el primer request (el filtro los oculta con JavaScript después de
+  cargar), así que un buscador ve el listado completo sin necesitar una
+  segunda URL. No hace falta `rel=next/prev` ni entradas extra en el
+  sitemap por esto.
+
+- **Alt de imágenes**: se completó el que faltaba (las miniaturas de la
+  galería de producto no tenían nombre accesible para el botón que las
+  envuelve).
 
 ## Carrito lateral
 
@@ -217,6 +283,9 @@ npm run preview  # sirve dist/ ya generado
   `/finalizar-compra/`, `/mi-cuenta/`; sí cachear los archivos de Astro. Se
   configura en el panel, no desde el repositorio.
 - **Imágenes sin tamaños intermedios** en WordPress (ver "Imágenes").
+- **Páginas demo en el sitemap** (`/driver/`, `/tracking/`, `/wishlist/`,
+  `/ideas-for-breakfest/`, `/shop/`): revisar si hay que despublicarlas en
+  WordPress (ver "SEO").
 - **WoodMart**: para que el paso de Astro a `/finalizar-compra/` no se
   sienta como otro sitio, conviene que el encabezado/pie de WoodMart usen
   el mismo naranja (`#F95D00`) y tipografía que quedaron acá. No se tocó
