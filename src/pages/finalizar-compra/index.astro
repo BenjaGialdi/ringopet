@@ -1,7 +1,13 @@
 ---
 import Base from '../../layouts/Base.astro';
 
-// Mismo valor y mismo texto que el <select> de localidad del checkout clásico de WooCommerce (relevado en prueba.ringopet.com.ar).
+// PENDIENTE (regla "Astro solo lee de Woo", ver CLAUDE.md): esta lista se relevó
+// del HTML del checkout clásico de WooCommerce, pero no encontré de dónde la arma
+// (no es un ajuste nativo de WooCommerce ni aparece en ningún plugin con API
+// pública instalado en el sitio: probablemente esté escrita a mano en el tema o
+// en un plugin de edición de campos del checkout). Avisame dónde está cargada de
+// verdad y armo un endpoint de solo lectura como los de wp-plugin/, igual que se
+// hizo con las cuentas bancarias y los medios de pago.
 const localidades = [
   { valor: 'Córdoba', texto: 'Córdoba capital (incluye Argüello, Valle Escondido y V. Belgrano)' },
   { valor: 'La Calera', texto: 'La Calera' },

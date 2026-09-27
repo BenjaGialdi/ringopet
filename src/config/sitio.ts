@@ -123,6 +123,11 @@ export const sitio: Sitio = {
 
   areaServed: 'Córdoba capital, Argentina',
 
+  // PENDIENTE (regla "Astro solo lee de Woo", ver CLAUDE.md): WooCommerce no
+  // tiene un concepto nativo de "WhatsApp de la tienda" y no se detectó ningún
+  // plugin de WhatsApp instalado (no aparece en /wp-json/ de prueba.ringopet.com.ar).
+  // Este número me lo pasó Benja directo por chat. Si en algún momento se carga
+  // en un plugin con su propio ajuste, avisame y lo leo de ahí.
   whatsapp: {
     numero: '5493516371993',
     mensaje: 'Hola, quería consultarte por un producto.',
