@@ -1,0 +1,166 @@
+@import 'tailwindcss';
+
+/* Las variables --c-* se definen en el <head> desde src/config/sitio.ts (ver layouts/Base.astro). */
+@theme inline {
+  --color-primario: var(--c-primario);
+  --color-sobre-primario: var(--c-sobre-primario);
+  --color-acento: var(--c-acento);
+  --color-fondo: var(--c-fondo);
+  --color-fondo-suave: var(--c-fondo-suave);
+  --color-texto: var(--c-texto);
+  --color-texto-suave: var(--c-texto-suave);
+  --color-borde: var(--c-borde);
+  --font-sans: var(--fuente-texto);
+  --font-titulos: var(--fuente-titulos, var(--fuente-texto));
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    @apply bg-fondo font-sans text-texto antialiased;
+  }
+  h1,
+  h2,
+  h3 {
+    @apply font-titulos font-bold leading-tight tracking-tight;
+  }
+  :focus-visible {
+    outline: 3px solid var(--c-acento);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+  }
+}
+
+@layer components {
+  .contenedor {
+    @apply mx-auto w-full max-w-6xl px-4 sm:px-6;
+  }
+  .boton {
+    @apply inline-flex min-h-11 items-center justify-center rounded-lg bg-primario px-5 py-2.5 font-semibold text-sobre-primario no-underline transition-colors hover:brightness-110;
+  }
+  .boton-borde {
+    @apply inline-flex min-h-11 items-center justify-center rounded-lg border-2 border-primario px-5 py-2.5 font-semibold text-primario no-underline transition-colors hover:bg-fondo-suave;
+  }
+  .prosa {
+    @apply max-w-prose text-lg leading-relaxed;
+  }
+  .prosa > * + * {
+    @apply mt-4;
+  }
+  .prosa h2 {
+    @apply mt-8 text-2xl;
+  }
+  .prosa h3 {
+    @apply mt-6 text-xl;
+  }
+  .prosa ul {
+    @apply list-disc pl-6;
+  }
+  .prosa ol {
+    @apply list-decimal pl-6;
+  }
+  .prosa a {
+    @apply text-primario underline underline-offset-2;
+  }
+}
+
+/* Animaciones de entrada: solo se ocultan si el script marcó <html class="anim">. */
+html.anim [data-reveal] {
+  opacity: 0;
+  transform: translateY(14px);
+  transition:
+    opacity 0.6s ease-out,
+    transform 0.6s ease-out;
+}
+html.anim [data-reveal].visto {
+  opacity: 1;
+  transform: none;
+}
+
+/* Paneles laterales (menú y carrito): <dialog> anclado al borde, que entra con deslizamiento. */
+[data-menu-lateral],
+[data-carrito-lateral] {
+  position: fixed;
+  inset-block: 0;
+  margin: 0;
+  transform: translateX(-100%);
+  transition:
+    transform 0.35s cubic-bezier(0.22, 0.61, 0.36, 1),
+    opacity 0.35s ease-out,
+    overlay 0.35s allow-discrete,
+    display 0.35s allow-discrete;
+  opacity: 0;
+}
+[data-menu-lateral] {
+  inset-inline-start: 0;
+}
+[data-carrito-lateral] {
+  inset-inline-end: 0;
+  transform: translateX(100%);
+}
+[data-menu-lateral][open],
+[data-carrito-lateral][open] {
+  transform: none;
+  opacity: 1;
+}
+@starting-style {
+  [data-menu-lateral][open],
+  [data-carrito-lateral][open] {
+    opacity: 0;
+  }
+  [data-menu-lateral][open] {
+    transform: translateX(-100%);
+  }
+  [data-carrito-lateral][open] {
+    transform: translateX(100%);
+  }
+}
+[data-menu-lateral]::backdrop,
+[data-carrito-lateral]::backdrop {
+  transition: opacity 0.35s ease-out;
+  opacity: 0;
+}
+[data-menu-lateral][open]::backdrop,
+[data-carrito-lateral][open]::backdrop {
+  opacity: 1;
+}
+/* Enlaces del menú lateral: entran escalonados (el retraso lo pone cada <li> inline). */
+[data-menu-lateral] [data-r] {
+  animation: entra-item 0.4s cubic-bezier(0.22, 0.61, 0.36, 1) backwards;
+}
+@keyframes entra-item {
+  from {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-menu-lateral],
+  [data-carrito-lateral] {
+    transition: none;
+  }
+  [data-menu-lateral] [data-r] {
+    animation: none;
+  }
+}
+
+/* Mensajes de error del formulario sin JS: el servidor redirige a /contacto/#error-xxx. */
+.mensaje-form {
+  display: none;
+}
+.mensaje-form:target,
+.mensaje-form.visible {
+  display: block;
+}
