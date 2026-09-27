@@ -1,0 +1,85 @@
+---
+import { Image } from 'astro:assets';
+import { sitio } from '../config/sitio';
+import fluxa from '../assets/creditos/fluxa-gris.webp';
+import logo from '../assets/marca/logo.webp';
+
+const anio = new Date().getFullYear();
+
+const enlacesUtiles = [
+  { texto: 'Nosotros', ruta: '/nosotros/' },
+  { texto: 'Contacto', ruta: '/contacto/' },
+  { texto: 'Mayorista', ruta: '/mayorista/' },
+  { texto: 'Envíos y preguntas frecuentes', ruta: '/envios-y-preguntas-frecuentes/' },
+];
+---
+
+<footer class="mt-16 border-t border-borde bg-fondo-suave">
+  <div class="contenedor grid gap-8 py-10 sm:grid-cols-2 lg:grid-cols-4">
+    <div>
+      <Image src={logo} alt={sitio.logo.alt} widths={[140, 280]} sizes="140px" class="h-10 w-auto" />
+      <p class="mt-3 max-w-xs text-texto-suave">{sitio.descripcion}</p>
+      {
+        sitio.redes.length > 0 && (
+          <ul class="mt-4 flex flex-wrap gap-4" aria-label="Redes sociales">
+            {sitio.redes.map((r) => (
+              <li>
+                <a href={r.url} rel="noopener" target="_blank" class="font-medium text-primario underline underline-offset-2">
+                  {r.nombre}
+                </a>
+              </li>
+            ))}
+          </ul>
+        )
+      }
+    </div>
+
+    <div>
+      <h2 class="text-lg">Categorías</h2>
+      <ul class="mt-2 space-y-1 text-texto-suave">
+        {
+          sitio.menu.map((e) => (
+            <li>
+              <a href={e.ruta} class="hover:text-primario">{e.texto}</a>
+            </li>
+          ))
+        }
+      </ul>
+    </div>
+
+    <div>
+      <h2 class="text-lg">Enlaces útiles</h2>
+      <ul class="mt-2 space-y-1 text-texto-suave">
+        {
+          enlacesUtiles.map((e) => (
+            <li>
+              <a href={e.ruta} class="hover:text-primario">{e.texto}</a>
+            </li>
+          ))
+        }
+      </ul>
+    </div>
+
+    <div>
+      <h2 class="text-lg">Contacto</h2>
+      <address class="mt-2 space-y-1 not-italic text-texto-suave">
+        <p>
+          <a href={`tel:${sitio.contacto.telefonoEnlace}`} class="hover:text-primario">{sitio.contacto.telefono}</a>
+        </p>
+        <p>
+          <a href={`mailto:${sitio.contacto.email}`} class="hover:text-primario">{sitio.contacto.email}</a>
+        </p>
+        <p>{sitio.contacto.direccion.localidad}, {sitio.contacto.direccion.provincia}</p>
+      </address>
+    </div>
+  </div>
+
+  <div class="border-t border-borde">
+    <div class="contenedor flex flex-wrap items-center justify-between gap-2 py-4 text-sm text-texto-suave">
+      <p>© {anio} {sitio.nombre}. Todos los derechos reservados.</p>
+      <a href="https://fluxa.ar" target="_blank" rel="noopener" aria-label="Sitio hecho por Fluxa" class="inline-block transition-opacity hover:opacity-80">
+        <Image src={fluxa} alt="Fluxa" width={90} height={36} densities={[1, 2]} loading="lazy" />
+      </a>
+    </div>
+  </div>
+</footer>

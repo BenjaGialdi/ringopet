@@ -1,0 +1,202 @@
+---
+import { Image } from 'astro:assets';
+import { sitio } from '../config/sitio';
+import { obtenerTodasLasCategorias, hijasDe, ordenarPrincipales } from '../lib/tienda/categorias';
+import { rutaLocal } from '../lib/tienda/productos';
+import logo from '../assets/marca/logo.webp';
+
+const categorias = await obtenerTodasLasCategorias();
+const principales = ordenarPrincipales(categorias.filter((c) => c.parent === 0));
+
+const enlacesInfo = [
+  { texto: 'Nosotros', ruta: '/nosotros/' },
+  { texto: 'Contacto', ruta: '/contacto/' },
+  { texto: 'Mayorista', ruta: '/mayorista/' },
+  { texto: 'Envíos y preguntas frecuentes', ruta: '/envios-y-preguntas-frecuentes/' },
+];
+---
+
+<header data-encabezado class="sticky top-0 z-30 border-b border-borde bg-fondo/95 backdrop-blur transition-shadow duration-300">
+  <div class="contenedor flex items-center gap-2 py-3 sm:gap-4">
+    <button
+      type="button"
+      data-abrir-menu
+      class="flex min-h-11 items-center gap-2 rounded-lg border-2 border-primario px-3 font-semibold text-primario transition-colors hover:bg-fondo-suave"
+    >
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true" focusable="false">
+        <path d="M4 7h16M4 12h16M4 17h16" />
+      </svg>
+      <span class="hidden sm:inline">Categorías</span>
+    </button>
+
+    <a href="/" class="shrink-0">
+      <Image src={logo} alt={sitio.logo.alt} widths={[160, 320]} sizes="160px" priority class="h-9 w-auto sm:h-10" />
+    </a>
+
+    <form action="/busqueda/" method="get" role="search" class="flex min-w-0 flex-1 items-center">
+      <label for="buscar-header" class="sr-only">Buscar productos</label>
+      <input
+        id="buscar-header"
+        type="search"
+        name="q"
+        placeholder="Buscar productos"
+        class="min-h-11 w-full min-w-0 rounded-l-lg border border-r-0 border-borde px-3 text-sm focus-visible:relative focus-visible:z-10"
+      />
+      <button type="submit" aria-label="Buscar" class="flex min-h-11 items-center justify-center rounded-r-lg bg-primario px-4 text-sobre-primario">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true" focusable="false">
+          <circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" />
+        </svg>
+      </button>
+    </form>
+
+    <a href={sitio.rutasWoo.miCuenta} class="hidden min-h-11 shrink-0 items-center gap-2 font-medium text-texto hover:text-primario md:flex">
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+        <circle cx="12" cy="8" r="4" /><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7" />
+      </svg>
+      <span class="hidden lg:inline">Mi cuenta</span>
+    </a>
+
+    <button type="button" data-abrir-carrito aria-label="Ver carrito" class="relative flex min-h-11 shrink-0 items-center gap-2 rounded-lg bg-primario px-3 text-sobre-primario transition-transform hover:scale-[1.03]">
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+        <circle cx="9" cy="21" r="1" /><circle cx="19" cy="21" r="1" />
+        <path d="M1 1h4l2.4 12.2a2 2 0 0 0 2 1.6h8.9a2 2 0 0 0 2-1.6L22 6H6" />
+      </svg>
+      <span data-contador-carrito hidden class="absolute -right-1.5 -top-1.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-acento px-1 text-xs font-bold text-white">0</span>
+    </button>
+  </div>
+
+  <nav aria-label="Categorías principales" class="hidden border-t border-borde md:block">
+    <ul class="contenedor flex gap-6 py-2 text-sm">
+      {
+        principales.map((c) => (
+          <li>
+            <a href={rutaLocal(c.permalink)} class="font-medium hover:text-primario">
+              {c.name}
+            </a>
+          </li>
+        ))
+      }
+    </ul>
+  </nav>
+</header>
+
+<dialog data-menu-lateral aria-label="Menú" class="m-0 h-dvh max-h-none w-[85vw] max-w-sm border-none bg-fondo p-0 backdrop:bg-black/50 backdrop:backdrop-blur-sm open:animate-none">
+  <div class="flex h-full flex-col">
+    <div class="flex items-center justify-between border-b border-borde p-4">
+      <p class="font-titulos text-lg font-bold">Menú</p>
+      <button type="button" data-cerrar-menu aria-label="Cerrar menú" class="flex h-9 w-9 items-center justify-center rounded-full hover:bg-fondo-suave">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true" focusable="false">
+          <path d="M6 6l12 12M18 6 6 18" />
+        </svg>
+      </button>
+    </div>
+
+    <nav class="flex-1 overflow-y-auto p-4" aria-label="Categorías y enlaces">
+      <ul class="space-y-1">
+        {
+          principales.map((cat, i) => {
+            const hijas = hijasDe(categorias, cat.id);
+            return (
+              <li data-r style={`transition-delay:${i * 60}ms`}>
+                {hijas.length > 0 ? (
+                  <details class="group">
+                    <summary class="flex min-h-11 cursor-pointer list-none items-center justify-between rounded-lg px-2 font-semibold hover:bg-fondo-suave [&::-webkit-details-marker]:hidden">
+                      <a href={rutaLocal(cat.permalink)} class="flex-1">{cat.name}</a>
+                      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" class="transition-transform group-open:rotate-180" aria-hidden="true" focusable="false">
+                        <path d="m6 9 6 6 6-6" />
+                      </svg>
+                    </summary>
+                    <ul class="ml-3 mt-1 space-y-1 border-l border-borde pl-3">
+                      {hijas.map((h) => (
+                        <li>
+                          <a href={rutaLocal(h.permalink)} class="block min-h-9 rounded px-2 py-1.5 text-texto-suave hover:text-primario">
+                            {h.name}
+                          </a>
+                        </li>
+                      ))}
+                    </ul>
+                  </details>
+                ) : (
+                  <a href={rutaLocal(cat.permalink)} class="block min-h-11 rounded-lg px-2 py-2.5 font-semibold hover:bg-fondo-suave">
+                    {cat.name}
+                  </a>
+                )}
+              </li>
+            );
+          })
+        }
+      </ul>
+
+      <hr class="my-4 border-borde" />
+
+      <ul class="space-y-1">
+        {
+          enlacesInfo.map((e, i) => (
+            <li data-r style={`transition-delay:${(principales.length + i) * 60}ms`}>
+              <a href={e.ruta} class="block min-h-11 rounded-lg px-2 py-2.5 text-texto hover:bg-fondo-suave">
+                {e.texto}
+              </a>
+            </li>
+          ))
+        }
+        <li data-r style={`transition-delay:${(principales.length + enlacesInfo.length) * 60}ms`}>
+          <a href={sitio.rutasWoo.miCuenta} class="block min-h-11 rounded-lg px-2 py-2.5 font-semibold hover:bg-fondo-suave">Mi cuenta</a>
+        </li>
+      </ul>
+    </nav>
+  </div>
+</dialog>
+
+<dialog data-carrito-lateral aria-label="Carrito de compra" class="m-0 h-dvh max-h-none w-[90vw] max-w-md border-none bg-fondo p-0 backdrop:bg-black/50 backdrop:backdrop-blur-sm">
+  <div class="flex h-full flex-col">
+    <div class="flex items-center justify-between border-b border-borde p-4">
+      <p class="font-titulos text-lg font-bold">Carrito de compra</p>
+      <button type="button" data-cerrar-carrito aria-label="Cerrar carrito" class="flex h-9 w-9 items-center justify-center rounded-full hover:bg-fondo-suave">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true" focusable="false">
+          <path d="M6 6l12 12M18 6 6 18" />
+        </svg>
+      </button>
+    </div>
+
+    <div class="flex-1 overflow-y-auto p-4">
+      <p data-carrito-vacio class="py-10 text-center text-texto-suave">Todavía no agregaste productos.</p>
+      <ul data-carrito-items hidden class="divide-y divide-borde"></ul>
+    </div>
+
+    <div class="border-t border-borde p-4">
+      <div class="flex items-center justify-between text-lg font-semibold">
+        <span>Subtotal</span>
+        <span data-carrito-subtotal class="text-primario">$ 0,00</span>
+      </div>
+      <a href={sitio.rutasWoo.finalizarCompra} class="boton mt-4 w-full">Finalizar compra</a>
+    </div>
+  </div>
+</dialog>
+
+<script>
+  import { iniciarCarritoUI } from '../scripts/carrito-ui';
+
+  iniciarCarritoUI();
+
+  // Menú lateral: abre/cierra como <dialog>, cierra con Escape (nativo), clic afuera o al elegir un enlace.
+  const menu = document.querySelector<HTMLDialogElement>('[data-menu-lateral]');
+  const abrirMenuBtn = document.querySelector('[data-abrir-menu]');
+  abrirMenuBtn?.addEventListener('click', () => {
+    menu?.showModal();
+    document.body.style.overflow = 'hidden';
+  });
+  menu?.addEventListener('close', () => {
+    document.body.style.overflow = '';
+  });
+  menu?.querySelector('[data-cerrar-menu]')?.addEventListener('click', () => menu.close());
+  menu?.addEventListener('click', (e) => {
+    if (e.target === menu) menu.close();
+  });
+  menu?.querySelectorAll('a').forEach((a) => a.addEventListener('click', () => menu.close()));
+
+  // Encabezado: gana sombra y fondo sólido al bajar.
+  const encabezado = document.querySelector('[data-encabezado]');
+  const alScrollear = () => encabezado?.classList.toggle('shadow-md', window.scrollY > 8);
+  addEventListener('scroll', alScrollear, { passive: true });
+  alScrollear();
+</script>

@@ -1,0 +1,50 @@
+---
+import { sitio } from '../config/sitio';
+import { codigoSearchConsole, urlAbsoluta } from '../lib/url';
+
+interface Props {
+  titulo?: string;
+  descripcion?: string;
+  /** Archivo de public/ o URL absoluta. Por defecto, la imagen de sitio.ts. */
+  imagen?: string;
+  imagenAlt?: string;
+  noindex?: boolean;
+  tipoOg?: 'website' | 'article';
+}
+
+const {
+  titulo,
+  descripcion = sitio.descripcion,
+  imagen = sitio.imagenCompartir.archivo,
+  imagenAlt = sitio.imagenCompartir.alt,
+  noindex = false,
+  tipoOg = 'website',
+} = Astro.props;
+
+// En la portada el título es solo el nombre; en las internas, "Página | Nombre".
+const tituloCompleto = titulo ? `${titulo} | ${sitio.nombre}` : sitio.nombre;
+const canonica = urlAbsoluta(Astro.url.pathname);
+const imagenUrl = urlAbsoluta(imagen);
+const verificacion = codigoSearchConsole();
+---
+
+<title>{tituloCompleto}</title>
+<meta name="description" content={descripcion} />
+<link rel="canonical" href={canonica} />
+{noindex && <meta name="robots" content="noindex, follow" />}
+{verificacion && <meta name="google-site-verification" content={verificacion} />}
+
+<meta property="og:type" content={tipoOg} />
+<meta property="og:site_name" content={sitio.nombre} />
+<meta property="og:locale" content={sitio.locale.replace('-', '_')} />
+<meta property="og:title" content={tituloCompleto} />
+<meta property="og:description" content={descripcion} />
+<meta property="og:url" content={canonica} />
+<meta property="og:image" content={imagenUrl} />
+<meta property="og:image:alt" content={imagenAlt} />
+
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content={tituloCompleto} />
+<meta name="twitter:description" content={descripcion} />
+<meta name="twitter:image" content={imagenUrl} />
+<meta name="twitter:image:alt" content={imagenAlt} />

@@ -1,0 +1,5 @@
+# Los archivos de /_astro/ (CSS, JS, imágenes optimizadas y tipografías) llevan hash en el nombre:
+# si cambian, cambia la URL. Se pueden cachear un año.
+<IfModule mod_headers.c>
+    Header set Cache-Control "public, max-age=31536000, immutable"
+</IfModule>

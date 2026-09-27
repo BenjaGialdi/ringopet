@@ -1,0 +1,65 @@
+---
+import TarjetaProducto from './TarjetaProducto.astro';
+import type { Producto } from '../lib/tienda/tipos';
+
+interface Props {
+  titulo: string;
+  productos: Producto[];
+  verTodoRuta?: string;
+}
+
+const { titulo, productos, verTodoRuta } = Astro.props;
+---
+
+{
+  productos.length > 0 && (
+    <section class="py-8" data-reveal>
+      <div class="contenedor flex items-end justify-between gap-4">
+        <h2 class="text-2xl sm:text-3xl">{titulo}</h2>
+        {verTodoRuta && (
+          <a href={verTodoRuta} class="shrink-0 text-sm font-semibold text-primario hover:underline">
+            Ver todos los productos
+          </a>
+        )}
+      </div>
+      <div class="relative mt-4">
+        <div class="overflow-hidden" data-carrusel>
+          <div class="flex gap-4 px-4 sm:px-6">
+            {productos.map((p) => (
+              <div class="w-[46%] min-w-0 shrink-0 sm:w-[30%] lg:w-[22%]">
+                <TarjetaProducto producto={p} />
+              </div>
+            ))}
+          </div>
+        </div>
+        <button
+          type="button"
+          data-prev
+          aria-label="Productos anteriores"
+          class="absolute left-1 top-1/2 hidden h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-borde bg-fondo shadow transition-transform hover:scale-105 sm:flex"
+        >
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true" focusable="false"><path d="m15 6-6 6 6 6" /></svg>
+        </button>
+        <button
+          type="button"
+          data-next
+          aria-label="Siguientes productos"
+          class="absolute right-1 top-1/2 hidden h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-borde bg-fondo shadow transition-transform hover:scale-105 sm:flex"
+        >
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true" focusable="false"><path d="m9 6 6 6-6 6" /></svg>
+        </button>
+      </div>
+    </section>
+  )
+}
+
+<script>
+  import EmblaCarousel from 'embla-carousel';
+
+  document.querySelectorAll<HTMLElement>('[data-carrusel]').forEach((el) => {
+    const embla = EmblaCarousel(el, { align: 'start', dragFree: true, containScroll: 'trimSnaps' });
+    const contenedor = el.parentElement;
+    contenedor?.querySelector('[data-prev]')?.addEventListener('click', () => embla.scrollPrev());
+    contenedor?.querySelector('[data-next]')?.addEventListener('click', () => embla.scrollNext());
+  });
+</script>

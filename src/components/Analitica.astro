@@ -1,0 +1,31 @@
+---
+import { sitio } from '../config/sitio';
+
+const id = sitio.analitica.googleAnalytics.trim();
+
+if (id && !/^G-[A-Z0-9]+$/.test(id)) {
+  throw new Error(`analitica.googleAnalytics "${id}" no parece un ID de GA4 (debería ser G-XXXXXXXXXX).`);
+}
+---
+
+{
+  id && (
+    <script is:inline define:vars={{ id }}>
+      var cargado = 0, eventos = ['scroll', 'click', 'touchstart', 'keydown'];
+      function cargarGtag() {
+        if (cargado) return;
+        cargado = 1;
+        eventos.forEach(function (e) { removeEventListener(e, cargarGtag); });
+        window.dataLayer = window.dataLayer || [];
+        window.gtag = function () { dataLayer.push(arguments); };
+        var s = document.createElement('script');
+        s.async = 1;
+        s.src = 'https://www.googletagmanager.com/gtag/js?id=' + id;
+        document.head.appendChild(s);
+        gtag('js', new Date());
+        gtag('config', id);
+      }
+      eventos.forEach(function (e) { addEventListener(e, cargarGtag, { passive: true }); });
+    </script>
+  )
+}

@@ -1,0 +1,31 @@
+---
+import type { Miga } from '../lib/schema';
+
+interface Props {
+  items: Miga[];
+}
+
+const { items } = Astro.props;
+---
+
+<nav aria-label="Migas de pan" class="contenedor pt-6 text-sm">
+  <ol class="flex flex-wrap items-center gap-x-2 gap-y-1 text-texto-suave">
+    {
+      items.map((m, i) => {
+        const ultima = i === items.length - 1;
+        return (
+          <li class="flex items-center gap-2">
+            {ultima ? (
+              <span aria-current="page" class="font-medium text-texto">{m.nombre}</span>
+            ) : (
+              <>
+                <a href={m.ruta} class="text-primario underline underline-offset-2">{m.nombre}</a>
+                <span aria-hidden="true">/</span>
+              </>
+            )}
+          </li>
+        );
+      })
+    }
+  </ol>
+</nav>

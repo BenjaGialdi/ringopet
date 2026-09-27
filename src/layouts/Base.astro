@@ -1,0 +1,79 @@
+---
+import '../styles/global.css';
+import { Font } from 'astro:assets';
+import { sitio } from '../config/sitio';
+import Seo from '../components/Seo.astro';
+import Analitica from '../components/Analitica.astro';
+import Animaciones from '../components/Animaciones.astro';
+import Encabezado from '../components/Encabezado.astro';
+import Pie from '../components/Pie.astro';
+import Migas from '../components/Migas.astro';
+import BotonWhatsapp from '../components/BotonWhatsapp.astro';
+import { nodoMigas, nodoNegocio, nodoSitioWeb, serializarLd, type Miga } from '../lib/schema';
+
+interface Props {
+  titulo?: string;
+  descripcion?: string;
+  imagen?: string;
+  imagenAlt?: string;
+  noindex?: boolean;
+  tipoOg?: 'website' | 'article';
+  /** Migas de pan de páginas internas (sin incluir Inicio: se suma sola). */
+  migas?: Miga[];
+  /** Nodos JSON-LD extra de la página (por ejemplo Service). */
+  ldExtra?: object[];
+}
+
+const { titulo, descripcion, imagen, imagenAlt, noindex, tipoOg, migas, ldExtra = [] } = Astro.props;
+
+const c = sitio.colores;
+const variables = `:root{--c-primario:${c.primario};--c-sobre-primario:${c.sobrePrimario};--c-acento:${c.acento};--c-fondo:${c.fondo};--c-fondo-suave:${c.fondoSuave};--c-texto:${c.texto};--c-texto-suave:${c.textoSuave};--c-borde:${c.borde}}`;
+
+const migasCompletas = migas ? [{ nombre: 'Inicio', ruta: '/' }, ...migas] : undefined;
+const nodos = [
+  nodoNegocio(),
+  nodoSitioWeb(),
+  ...(migasCompletas ? [nodoMigas(migasCompletas)] : []),
+  ...ldExtra,
+];
+---
+
+<!doctype html>
+<html lang={sitio.idioma}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content={c.primario} />
+    <meta name="generator" content={Astro.generator} />
+
+    <Seo {titulo} {descripcion} {imagen} {imagenAlt} {noindex} {tipoOg} />
+
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/favicon.png" type="image/png" sizes="48x48" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+
+    <style set:html={variables}></style>
+    <Font cssVariable="--fuente-texto" preload={[{ subset: 'latin', style: 'normal' }]} />
+    {sitio.tipografias.titulos !== sitio.tipografias.texto && <Font cssVariable={"--fuente-titulos" as "--fuente-texto"} />}
+
+    <script type="application/ld+json" set:html={serializarLd(nodos)} />
+    <Animaciones />
+    <Analitica />
+  </head>
+  <body>
+    <a
+      href="#contenido"
+      class="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:rounded focus:bg-fondo focus:px-4 focus:py-2 focus:font-semibold"
+    >
+      Saltar al contenido
+    </a>
+    <Encabezado />
+    <main id="contenido">
+      {migasCompletas && <Migas items={migasCompletas} />}
+      <slot />
+    </main>
+    <Pie />
+    <BotonWhatsapp />
+  </body>
+</html>

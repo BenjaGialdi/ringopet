@@ -1,0 +1,110 @@
+# Hostinger (LiteSpeed). Se copia tal cual a public_html al publicar.
+# Requiere: build.format 'directory' y trailingSlash 'always' en astro.config.ts.
+#
+# *** IMPORTANTE: este archivo REEMPLAZA por completo al .htaccess que ya está
+# en public_html (WordPress), porque la publicación sube dist/.htaccess a la
+# misma ruta. Antes de publicar en el sitio real, hay que pegar ACÁ (después de
+# este bloque y antes de "BEGIN WordPress" de abajo) todo lo que WordPress y
+# sus plugins ya agregaron en el .htaccess del servidor (permalinks, ORDDD,
+# Mercado Pago, algún plugin de seguridad o caché, etc.). No se puede armar a
+# ciegas desde esta sesión: hay que traer el archivo real del hosting primero.
+
+Options -Indexes
+DirectoryIndex index.html index.php
+ServerSignature Off
+AddDefaultCharset UTF-8
+
+# ---------------------------------------------------------------------------
+# HTTPS, una sola versión del dominio y URLs limpias
+# ---------------------------------------------------------------------------
+<IfModule mod_rewrite.c>
+RewriteEngine On
+
+# Versión canónica: SIN www (por defecto). Tiene que coincidir con "dominio" de src/config/sitio.ts.
+RewriteCond %{HTTP_HOST} ^www\.(.+)$ [NC]
+RewriteRule ^ https://%1%{REQUEST_URI} [L,R=301]
+
+# Si el cliente prefiere CON www: borrá el bloque de arriba y activá este.
+# RewriteCond %{HTTP_HOST} !^www\. [NC]
+# RewriteRule ^ https://www.%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+# Forzar HTTPS (también detrás del proxy de Hostinger).
+RewriteCond %{HTTPS} !=on
+RewriteCond %{HTTP:X-Forwarded-Proto} !https
+RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+# /pagina/index.html -> /pagina/
+RewriteCond %{THE_REQUEST} \s/+(.*/)?index\.html[\s?]
+RewriteRule ^ /%1 [L,R=301]
+
+# /pagina -> /pagina/ (consistente con trailingSlash: 'always')
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteCond %{REQUEST_URI} !/$
+RewriteRule ^(.*)$ https://%{HTTP_HOST}/$1/ [L,R=301]
+</IfModule>
+
+# La 404 de Astro se genera como /404.html
+ErrorDocument 404 /404.html
+
+# ---------------------------------------------------------------------------
+# Archivos sensibles: nunca se sirven
+# ---------------------------------------------------------------------------
+# Archivos ocultos (incluye .ftp-deploy-sync-state.json, que deja la acción de publicación),
+# credenciales, contadores de límite por IP y archivos de trabajo.
+<FilesMatch "^\.|^config-formulario|^limite-|\.(log|env|ini|bak|sql|sh|md|example\.php)$">
+    Require all denied
+</FilesMatch>
+<FilesMatch "^\.ftp-deploy-sync-state\.json$">
+    Require all denied
+</FilesMatch>
+# Carpeta de contadores por IP, por si alguien la crea dentro de public_html.
+RedirectMatch 403 ^/limites-formulario(/|$)
+RedirectMatch 404 /\.git
+
+# ---------------------------------------------------------------------------
+# Compresión
+# ---------------------------------------------------------------------------
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/html text/plain text/css text/xml application/xml application/json application/manifest+json application/javascript image/svg+xml
+</IfModule>
+
+# ---------------------------------------------------------------------------
+# Encabezados de seguridad y caché
+# ---------------------------------------------------------------------------
+<IfModule mod_headers.c>
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+    Header always set Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=()"
+    Header always set X-Frame-Options "SAMEORIGIN"
+
+    # HTML: siempre revalidar.
+    <FilesMatch "\.html$">
+        Header set Cache-Control "public, max-age=0, must-revalidate"
+    </FilesMatch>
+    # Sitemap y robots: un día.
+    <FilesMatch "\.(xml|txt)$">
+        Header set Cache-Control "public, max-age=86400"
+    </FilesMatch>
+    # Íconos, logo y manifest (sin hash en el nombre): una semana.
+    <FilesMatch "\.(png|jpe?g|svg|ico|webmanifest)$">
+        Header set Cache-Control "public, max-age=604800"
+    </FilesMatch>
+    # Lo de /_astro/ lleva hash en el nombre: ver public/_astro/.htaccess (caché larga e inmutable).
+</IfModule>
+
+# ---------------------------------------------------------------------------
+# Convivencia con WordPress/WooCommerce (mismo public_html, mismo dominio)
+# ---------------------------------------------------------------------------
+# TODO: pegar acá el bloque real de WordPress del servidor (permalinks y lo que
+# hayan agregado sus plugins) antes de publicar. Este es el bloque estándar de
+# WordPress con permalinks bonitos, como referencia mínima:
+# BEGIN WordPress
+<IfModule mod_rewrite.c>
+RewriteEngine On
+RewriteBase /
+RewriteRule ^index\.php$ - [L]
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule . /index.php [L]
+</IfModule>
+# END WordPress
