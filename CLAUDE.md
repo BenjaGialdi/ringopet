@@ -224,14 +224,52 @@ archivos fijos, ahí Astro optimiza gratis).
   de sesión + Nonce) y abre el panel. Ahora tiene dos botones: "Ver
   carrito" (`/carrito/`) y "Finalizar compra" (`/finalizar-compra/`).
 - **`/carrito/`** (`src/scripts/pagina-carrito.ts`): carrito completo.
-  Cantidades, quitar, cupón (aplicar/quitar), subtotal, descuento, total.
-  Si el carrito tiene un error bloqueante (por ejemplo el monto mínimo, ver
+  Cantidades, quitar, cupón (aplicar/quitar), subtotal, descuento, fees
+  (recargos o descuentos, ej. por medio de pago) y envío, total. Si el
+  carrito tiene un error bloqueante (por ejemplo el monto mínimo, ver
   abajo) el botón "Finalizar compra" queda deshabilitado.
+
+  **Ojo con esto** (bug real, ya corregido): el panel lateral del
+  encabezado y esta página usan los mismos nombres de atributo
+  (`data-carrito-items`, `data-carrito-subtotal`, `data-carrito-vacio`,
+  hay dos de cada uno en el DOM en `/carrito/`). Un `document.querySelector`
+  sin acotar agarra el primero que aparece en el documento — el del panel
+  lateral, que va antes en el HTML — así que `pagina-carrito.ts` pintaba
+  los productos en un `<ul>` oculto dentro de un `<dialog>` que nadie
+  abre. Por eso no se veían los productos y el subtotal daba $0,00 (el
+  total sí andaba: no hay ningún `data-carrito-total` en el panel
+  lateral, no hay colisión ahí). Fix: todo el script busca dentro de
+  `[data-pagina-carrito]`, nunca `document.querySelector` suelto. Si se
+  agrega un nombre de atributo nuevo compartido entre el panel lateral y
+  una página, hay que acotarlo de entrada.
+
 - **`/finalizar-compra/`** (`src/scripts/pagina-checkout.ts`): un solo
   paso. Datos del cliente, dirección (localidad como `<select>` fijo, ver
-  abajo), fecha y turno de entrega, medio de pago (transferencia o Mercado
-  Pago) y el botón de pagar, con el resumen del pedido al costado. Si el
-  carrito está vacío, redirige a un aviso con enlace a `/carrito/`.
+  abajo), fecha (calendario) y turno de entrega, medio de pago
+  (transferencia o Mercado Pago) y el botón de pagar. Si el carrito está
+  vacío, redirige a un aviso con enlace a `/carrito/`.
+
+  **Fecha de entrega**: [flatpickr](https://flatpickr.js.org/) (pedido
+  explícitamente), en español, semana desde el lunes, solo habilita los
+  días que devuelve `/wp-json/ringopet/v1/entrega` (`enable`), sin fecha
+  preseleccionada, y muestra `dia.etiqueta` tal cual la manda la API (no
+  el formato propio de flatpickr) vía la opción `formatDate`. Se carga
+  solo en esta página (el import vive en `pagina-checkout.ts`, ninguna
+  otra página lo importa, así que Vite no lo mete en ningún otro bundle).
+
+  **Turno de entrega**: `<select>` común, deshabilitado hasta elegir
+  fecha, arranca en "Elegí un turno".
+
+  **Resumen del pedido**: cada producto con imagen, nombre, variante,
+  cantidad y precio; subtotal, cupones, fees, envío y total — se pinta
+  dos veces (`pintarUnResumen()` recibe la raíz y busca adentro, mismo
+  patrón que el fix de arriba): un `<aside>` que en compu queda
+  `sticky` debajo del encabezado (con su propio botón de pagar), y un
+  `<details>` que en celular aparece plegado arriba del formulario
+  mostrando el total. El medio de pago y el botón de pagar "de celular"
+  quedan en el flujo normal del formulario (después de las notas), no
+  adentro de ninguno de los dos resúmenes, así siempre están alcanzables
+  en las dos resoluciones.
 - **`/pedido-recibido/`** (`src/scripts/pagina-gracias.ts`): lee
   `?pedido=<id>&key=<clave>` de la URL y pide el detalle a
   `wp-plugin/ringopet-pedido`. Si es transferencia, muestra CVU/Alias y un
@@ -278,6 +316,17 @@ reparte en esa zona.
 borrador) para leer `customer_id`; si es `0` (invitado), manda
 `create_account: true` en el pago. WooCommerce se encarga del resto (manda
 el email para elegir contraseña), sin nada más de nuestro lado.
+
+**Fees por medio de pago (recargos/descuentos)**: al cambiar el radio de
+medio de pago, `actualizarMedioDePago()` manda
+`PUT /wc/store/v1/checkout` con `{ payment_method }` — **PUT, no POST**:
+actualiza el borrador del pedido y recalcula (moneda, fees, lo que
+dependa del medio elegido) sin pagar ni crear el pedido todavía. La
+respuesta trae el carrito recalculado en `__experimentalCart`, que se usa
+para repintar el resumen. Probado contra `prueba.ringopet.com.ar`: hoy
+**no hay ningún fee configurado** (con `bacs` y con
+`woo-mercado-pago-basic` el total da igual, `fees` vacío) — el mecanismo
+ya queda armado para cuando Benja configure alguno.
 
 ### `wp-plugin/ringopet-pedido/` (nuevo)
 
