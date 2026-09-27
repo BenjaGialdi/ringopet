@@ -6,17 +6,23 @@ este sitio, que es distinto al resto: no reemplaza a WordPress, convive con
 
 ## Arquitectura
 
-- WooCommerce (WordPress + tema WoodMart) sigue viva y sigue manejando: pago
-  (`/finalizar-compra/`), carrito propio de Woo (`/carrito/`), `/mi-cuenta/`,
-  login, pedidos, Mercado Pago, turnos de entrega (ORDDD) y los emails.
+- **WooCommerce es back-end**: WordPress + WoodMart siguen procesando los
+  pedidos (Store API, Mercado Pago, ORDDD, stock, emails), pero el visitante
+  ya no ve ninguna página de WordPress en la compra. Solo `/mi-cuenta/`
+  sigue siendo una página de WordPress (por ahora).
 - Astro genera: portada (`/`), categorías (`/categoria-producto/.../`),
-  productos (`/producto/<slug>/`) y búsqueda (`/busqueda/`), más un carrito
-  lateral propio. Todo estático, se sube al mismo `public_html` que
+  productos (`/producto/<slug>/`), búsqueda (`/busqueda/`), carrito
+  (`/carrito/`), pago (`/finalizar-compra/`) y gracias
+  (`/pedido-recibido/`). Todo estático, se sube al mismo `public_html` que
   WordPress.
 - Convivencia por existencia de archivo: cada página de Astro es una carpeta
   real con su `index.html`, así que Apache la sirve directo. Lo que no es
-  una carpeta real (`/carrito/`, `/mi-cuenta/`, rutas de `/wp-json/`...) cae
-  al `index.php` de WordPress, como siempre. **Astro no publica ningún
+  una carpeta real (`/mi-cuenta/`, rutas de `/wp-json/`, subrutas como
+  `/finalizar-compra/order-pay/123/`...) cae al `index.php` de WordPress,
+  como siempre — `/finalizar-compra/order-pay/.../` no es una carpeta que
+  Astro genere, así que sigue yendo a WooCommerce sin que haga falta ninguna
+  regla aparte (confirmar una vez publicado: no se pudo probar en esta
+  sesión sin un pedido pendiente de pago real). **Astro no publica ningún
   `.htaccess`** (ver "Publicación" más abajo): hace falta un agregado manual
   de una sola línea al `.htaccess` real del servidor para que esto funcione,
   documentado en `README.md`.
@@ -37,9 +43,14 @@ Ningún componente ni página llama a la Store API directo. Todo pasa por acá:
 | `cliente.ts` | fetch base contra `WOO_URL` (build time), paginado |
 | `productos.ts` | `obtenerTodosLosProductos` (908, con y sin stock, para generar TODAS las páginas), `obtenerProductosEnStock`, `obtenerProductoPorSlug`, `obtenerProductosPorCategoria`/`obtenerProductosRelacionados` (solo con stock, para listados), `obtenerEnOferta`, `obtenerMasPedidos`. Decodifica entidades HTML de los nombres (la Store API devuelve `&#8211;` en vez de `–`) |
 | `categorias.ts` | árbol de categorías, migas de pan, orden Perros/Gatos primero |
-| `carrito.ts` | **rutas relativas** (`/wp-json/...`), corre en el navegador del cliente, nunca contra `WOO_URL` |
+| `api-navegador.ts` | fetch compartido del navegador contra la Store API (rutas relativas, Nonce entre llamadas). Lo usan `carrito.ts` y `checkout.ts` |
+| `carrito.ts` | agregar/quitar/cambiar cantidad, cupón, `actualizarCliente` (dirección + cálculo de envío) |
+| `checkout.ts` | `pagar()` (checkout), `obtenerDisponibilidadEntrega()` y `obtenerPedido()` (los dos endpoints propios, ver más abajo) |
 | `wordpress.ts` | API core de WordPress (`wp/v2`, no `wc/store`): fecha real de modificación de cada producto y páginas de WordPress a indexar. Solo lo usa `sitemap.xml.ts` |
 | `tipos.ts` | tipos de la Store API que usamos |
+
+`src/lib/moneda.ts` tiene el único `formatearPrecio()` del sitio (antes
+estaba duplicado en cada script).
 
 `WOO_URL` (variable de entorno, `.env` en local / variable de repo en GitHub
 Actions) apunta a la tienda que se lee en el build. Hoy: `prueba.ringopet.com.ar`
@@ -145,11 +156,14 @@ archivos fijos, ahí Astro optimiza gratis).
     afuera solos, sin necesidad de excluirlas a mano.
 
 - **`robots.txt`** (`src/pages/robots.txt.ts`): permite todo por defecto,
-  incluido `/wp-json/`, `/wp-content/`, `/carrito/`, `/finalizar-compra/` y
-  `/mi-cuenta/` (bloquearlas en robots.txt le impediría a Google leer el
-  `noindex, nofollow` propio que ya tienen). Solo bloquea `/wp-admin/` (con
+  incluido `/wp-json/`, `/wp-content/` y `/mi-cuenta/` (bloquearla le
+  impediría a Google leer el `noindex, nofollow` propio que ya tiene, ese
+  sí de WooCommerce). Solo bloquea `/wp-admin/` (con
   `/wp-admin/admin-ajax.php` permitido, lo usan temas y plugins desde el
-  front). Apunta a `/sitemap.xml`.
+  front). Apunta a `/sitemap.xml`. `/carrito/`, `/finalizar-compra/` y
+  `/pedido-recibido/` ya no dependen de WooCommerce para el noindex: son
+  páginas de Astro y llevan `noindex` propio (`<Base noindex>`), tampoco
+  bloqueadas en robots.txt por la misma razón que las de arriba.
 
 - **`/driver/` y `/tracking/`** (páginas del plugin de repartos): siguen
   funcionando para quien las use, pero no están en el sitemap y llevan
@@ -189,13 +203,83 @@ archivos fijos, ahí Astro optimiza gratis).
   galería de producto no tenían nombre accesible para el botón que las
   envuelve).
 
-## Carrito lateral
+## Carrito lateral, carrito completo, pago y gracias
 
-`src/scripts/carrito-ui.ts`: un solo script para todo el sitio. Cualquier
-botón `[data-agregar-carrito][data-id]` agrega ese producto al carrito de
-WooCommerce (Store API, cookies de sesión + Nonce) y abre el panel. El botón
-"Finalizar compra" del panel lleva a `/finalizar-compra/` de Woo con el
-mismo carrito.
+- **Carrito lateral** (`src/scripts/carrito-ui.ts`, en el encabezado): un
+  solo script para todo el sitio. Cualquier botón
+  `[data-agregar-carrito][data-id]` agrega ese producto (Store API, cookies
+  de sesión + Nonce) y abre el panel. Ahora tiene dos botones: "Ver
+  carrito" (`/carrito/`) y "Finalizar compra" (`/finalizar-compra/`).
+- **`/carrito/`** (`src/scripts/pagina-carrito.ts`): carrito completo.
+  Cantidades, quitar, cupón (aplicar/quitar), subtotal, descuento, total.
+  Si el carrito tiene un error bloqueante (por ejemplo el monto mínimo, ver
+  abajo) el botón "Finalizar compra" queda deshabilitado.
+- **`/finalizar-compra/`** (`src/scripts/pagina-checkout.ts`): un solo
+  paso. Datos del cliente, dirección (localidad como `<select>` fijo, ver
+  abajo), fecha y turno de entrega, medio de pago (transferencia o Mercado
+  Pago) y el botón de pagar, con el resumen del pedido al costado. Si el
+  carrito está vacío, redirige a un aviso con enlace a `/carrito/`.
+- **`/pedido-recibido/`** (`src/scripts/pagina-gracias.ts`): lee
+  `?pedido=<id>&key=<clave>` de la URL y pide el detalle a
+  `wp-plugin/ringopet-pedido`. Si es transferencia, muestra CVU/Alias y un
+  botón de WhatsApp con el número de pedido ya en el mensaje.
+
+### Cómo funciona el pago (Store API + ORDDD)
+
+Probado a mano contra `prueba.ringopet.com.ar` (cookies de sesión reales)
+antes de escribir el código:
+
+1. `actualizarCliente(direccion)` → `POST cart/update-customer`: carga la
+   dirección y calcula el envío (siempre "Envío gratuito" dentro de la
+   zona). **Hace falta llamarlo antes del checkout**: sin esto, el checkout
+   devuelve `woocommerce_rest_invalid_shipping_option` aunque la dirección
+   ya venga en el body del propio checkout.
+2. `pagar(datos)` → `POST checkout`, con
+   `extensions['order-delivery-date'] = { h_deliverydate, e_deliverydate, orddd_lite_time_slot }`
+   (mismo formato que ya usaba el pago clásico: `h_deliverydate` es
+   `j-n-Y`, ej. `"29-9-2026"`). ORDDD ya sabe guardarlo en el pedido; no lo
+   hace `ringopet-entrega` (que solo valida y sincroniza con repartos).
+3. Sin `payment_result.redirect_url` (transferencia): se redirige a mano a
+   `/pedido-recibido/?pedido=<order_id>&key=<order_key>`. Con
+   `redirect_url` (Mercado Pago): se redirige ahí directo, es la URL real
+   de pago de Mercado Pago.
+4. Si la Store API devuelve un error de fecha/turno (el código incluye
+   `fecha` o `turno`), `pagina-checkout.ts` vuelve a pedir
+   `/wp-json/ringopet/v1/entrega` y repinta los días/turnos, además de
+   marcar el campo — tal como se pidió.
+
+**Monto mínimo de compra**: hay un plugin/regla en WooCommerce con un
+mínimo de $30.000. Se ve como un `error` más dentro del carrito (mismo
+array que cualquier otro error de stock), así que `/carrito/` y
+`/finalizar-compra/` ya lo manejan sin código aparte: aparece el mensaje de
+WooCommerce tal cual y el botón de pagar se desactiva.
+
+**Localidad**: no es texto libre. Es un `<select>` fijo con las mismas 7
+opciones que ya tiene el checkout clásico (Córdoba capital, La Calera,
+Saldán, Villa Allende, Mendiolaza, Unquillo, Río Ceballos), relevadas del
+HTML real de `/finalizar-compra/` en `prueba.ringopet.com.ar`. La
+provincia se manda fija (`"X"`, Córdoba) sin mostrar el campo: solo se
+reparte en esa zona.
+
+**Cuenta de cliente**: `pagina-checkout.ts` pide `GET checkout` (el
+borrador) para leer `customer_id`; si es `0` (invitado), manda
+`create_account: true` en el pago. WooCommerce se encarga del resto (manda
+el email para elegir contraseña), sin nada más de nuestro lado.
+
+### `wp-plugin/ringopet-pedido/` (nuevo)
+
+La Store API tiene un endpoint de lectura de pedido
+(`GET wc/store/v1/order/<id>?key&billing_email`) pero no alcanza para
+"Gracias": no trae medio de pago, número de pedido ni fecha/turno. Este
+plugin agrega `GET /wp-json/ringopet/v1/pedido/<id>?key=<clave>` (la clave
+del pedido alcanza, no hace falta el email) con todo lo que falta,
+incluidos los datos de transferencia (de WooCommerce > Pagos >
+Transferencia bancaria — **ojo**: WooCommerce no tiene campos nativos
+CVU/Alias, se mapea `account_number` → CVU y `iban` → Alias; revisar y
+ajustar si en esa pantalla se cargó distinto). También filtra
+`woocommerce_get_checkout_order_received_url` para que toda vuelta de pago
+(incluida Mercado Pago) caiga en `/pedido-recibido/` de Astro. Detalle en
+`wp-plugin/README.md`.
 
 ## Sin local ni dirección física
 
@@ -242,9 +326,28 @@ general, donde el requisito de contraste no aplica igual.
 
 | Página | Rendimiento | Accesibilidad | Buenas prácticas | SEO |
 |---|---|---|---|---|
-| Portada | 99 | 100 | 96 | 100 |
+| Portada | 95-99* | 100 | 96 | 100 |
 | Categoría (Perros > Alimentos) | 99 | 100 | 96 | 100 |
 | Producto | 99 | 100 | 96 | 100 |
+| Carrito | 100 | 100 | 96 | 69** |
+| Finalizar compra | 94 | 100 | 96 | 69** |
+
+\* Varió entre corridas en esta compu (LCP 1.8s a 2.8s), no es un cambio de
+código: ver la imagen sin tamaños intermedios en "Imágenes".
+
+\*\* El 69 de SEO en carrito y pago es **a propósito**: el audit
+"Page is blocked from indexing" baja el puntaje porque esas páginas llevan
+`noindex` (correcto, no son contenido para buscar). No es algo para
+arreglar.
+
+Carrito y pago se probaron con el carrito vacío (sin WooCommerce en
+`npm run preview`), que es el peor caso de layout: la página pasa de "un
+mensaje corto" a mostrar nada más, y el logo del pie (con `astro:assets`)
+tenía un salto de layout chico al cargar sin tamaño explícito — ya
+corregido (`aspect-[2048/714]` además de `width`/`height` en
+`Encabezado.astro` y `Pie.astro`). Con un carrito real (más contenido en
+pantalla) el número debería ser igual o mejor; conviene volver a correr
+Lighthouse contra `prueba.ringopet.com.ar` con un pedido real en curso.
 
 Lo que falta para el 100 parejo, en las tres páginas:
 
@@ -276,21 +379,33 @@ npm run preview  # sirve dist/ ya generado
 
 ## Pendiente / a confirmar con Benja antes de publicar en el sitio real
 
-- **WhatsApp** ya cargado (`5493516371993`). Falta el mensaje predefinido
-  personalizado si lo querés distinto del genérico que quedó en `sitio.ts`.
-- **`.htaccess` real**: agregar a mano el `DirectoryIndex` (ver `README.md`)
-  en `prueba.ringopet.com.ar` primero, y en el sitio real el día de la
-  migración.
-- **Reglas de Cloudflare/LiteSpeed**: no cachear `/wp-json/`, `/carrito/`,
-  `/finalizar-compra/`, `/mi-cuenta/`; sí cachear los archivos de Astro. Se
-  configura en el panel, no desde el repositorio.
+- **Subir el build a `prueba.ringopet.com.ar`** (ver README.md, "Probar en
+  prueba.ringopet.com.ar") y probar ahí de punta a punta: carrito, pago con
+  transferencia y con Mercado Pago, `/pedido-recibido/`, pedido visible en
+  el admin con fecha/turno y en el plugin de repartos, emails. En esta
+  sesión solo se pudo probar la Store API directo (sin interfaz) y ver las
+  páginas con datos simulados en `npm run dev`/`preview` — nunca contra un
+  carrito real, porque no hay WooCommerce en localhost.
+- **Borrar los pedidos de prueba** en `prueba.ringopet.com.ar`: **#14992**
+  (transferencia) y **#14994** (Mercado Pago), y revisar si quedó un
+  **#14993** como borrador abandonado (intento con turno inválido).
+- **Comparar el pedido #14992 contra el #14989** en el admin (fecha, turno,
+  sincronizado con el plugin de repartos) — quedó pendiente, hace falta
+  acceso de solo lectura a wp-admin.
+- **CVU/Alias**: confirmar que `account_number`/`iban` de WooCommerce >
+  Pagos > Transferencia bancaria son efectivamente el CVU y el Alias (ver
+  "`wp-plugin/ringopet-pedido/`"). Si no, es un cambio de una línea en el
+  plugin.
+- **`.htaccess` real**: agregar a mano el `DirectoryIndex` y la
+  redirección de `/shop/` (ver `README.md`) en `prueba.ringopet.com.ar`
+  primero, y en el sitio real el día de la migración.
+- **Reglas de Cloudflare/LiteSpeed**: no cachear `/wp-json/`, `/mi-cuenta/`
+  (`/carrito/`, `/finalizar-compra/` y `/pedido-recibido/` ahora son de
+  Astro, se pueden cachear igual que el resto salvo que se prefiera no
+  cachearlas por las dudas); sí cachear los archivos de Astro. Se configura
+  en el panel, no desde el repositorio.
 - **Imágenes sin tamaños intermedios** en WordPress (ver "Imágenes").
-- **Redirección de `/shop/`**: agregar la línea del `.htaccess` (ver
-  `README.md`) junto con el `DirectoryIndex`.
-- **WoodMart**: para que el paso de Astro a `/finalizar-compra/` no se
-  sienta como otro sitio, conviene que el encabezado/pie de WoodMart usen
-  el mismo naranja (`#F95D00`) y tipografía que quedaron acá. No se tocó
-  WordPress desde esta sesión.
-- Probar carrito, pago (Mercado Pago y transferencia) y Mi cuenta contra
-  `prueba.ringopet.com.ar` siguiendo los pasos de `README.md` (subida
-  manual, todavía sin secretos de GitHub Actions cargados).
+- **WoodMart**: como ya no hay ningún paso por una página de WordPress
+  durante la compra, esto pierde urgencia, pero si `/mi-cuenta/` se sigue
+  usando conviene que WoodMart use el mismo naranja (`#F95D00`) y
+  tipografía. No se tocó WordPress desde esta sesión.

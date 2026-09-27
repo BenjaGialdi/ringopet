@@ -43,9 +43,12 @@ llega a aplicarse (esa regla exige que la carpeta NO exista). Lo único que
 falta es decirle a Apache que, al entrar a una carpeta, prefiera
 `index.html` sobre `index.php` si ambos podrían aplicar — eso es exactamente
 lo que hace `DirectoryIndex`. No hace falta tocar ni reordenar nada más del
-archivo existente: las rutas virtuales de WooCommerce (`/carrito/`,
-`/finalizar-compra/`, `/mi-cuenta/`) no son carpetas reales, así que la regla
-de WordPress las sigue agarrando igual que hoy.
+archivo existente: las rutas virtuales de WooCommerce que Astro no genera
+(`/mi-cuenta/`, `/finalizar-compra/order-pay/123/` y similares) no son
+carpetas reales, así que la regla de WordPress las sigue agarrando igual
+que hoy. `/carrito/` y `/finalizar-compra/` en cambio SÍ son carpetas
+reales ahora (las genera Astro): a partir de esta vuelta, esas dos URL
+muestran las páginas de Astro, no las de WooCommerce.
 
 Agregar también, en el mismo bloque: `/shop/` es el archivo de productos
 que genera WooCommerce/WoodMart, que ya no se usa (la navegación real es la
@@ -103,13 +106,23 @@ de "sincronizar y borrar": solo sumar/sobrescribir los archivos de `dist/`.
    seguir mostrando WordPress en vez de la portada de Astro.
 5. **Probar**, en este orden:
    - Portada, una categoría y un producto de Astro cargan bien.
-   - Agregar productos al carrito (panel lateral).
-   - "Finalizar compra" lleva a `/finalizar-compra/` de Woo **con el mismo
-     carrito** (mismos productos y cantidades).
-   - Completar el pago con **Mercado Pago** y, en otro pedido, con
-     **transferencia**.
-   - El pedido aparece en **Mi cuenta** > Pedidos.
+   - Agregar productos al carrito (panel lateral) y en `/carrito/`: cantidades,
+     quitar, cupón.
+   - `/finalizar-compra/` (de Astro): se completan los datos, aparecen los
+     días y turnos de entrega reales, y el pedido mínimo de $30.000 se
+     respeta (si el carrito no llega, el botón de pagar queda desactivado
+     con el aviso).
+   - Completar el pago con **transferencia**: redirige a
+     `/pedido-recibido/` con los datos del pedido y el CVU/Alias.
+   - Completar el pago con **Mercado Pago**: redirige a Mercado Pago y,
+     después de pagar, vuelve a `/pedido-recibido/` (no a una página de
+     WordPress).
+   - El pedido aparece en el admin de WordPress con fecha y turno de
+     entrega, y en el plugin de repartos.
+   - **Mi cuenta** (sigue en WordPress) muestra el pedido.
    - `/wp-admin/` y el resto de WordPress siguen funcionando igual que antes.
+   - `/finalizar-compra/order-pay/<id>/` (pagar un pedido pendiente) sigue
+     yendo a WordPress, no a la página de Astro.
 6. Si algo no anda, revisar antes que nada el `.htaccess` (paso 4) y que la
    carpeta subida sea la raíz correcta del subdominio (paso 2).
 
@@ -155,9 +168,10 @@ desaparece del servidor si el producto se borra de verdad en WooCommerce
 
 ## Antes de publicar en el sitio real
 
-Ver la sección "Pendiente / a confirmar con Benja" de `CLAUDE.md`: completar
-la dirección del negocio no aplica (es tienda online, ver `sitio.ts`),
-probar contra `prueba.ringopet.com.ar` (carrito, pago, Mi cuenta) siguiendo
-los pasos de arriba, agregar el `DirectoryIndex` al `.htaccess` real y
-revisar el peso de las imágenes de algunos productos (ver Lighthouse en
-`CLAUDE.md`).
+Ver la sección "Pendiente / a confirmar con Benja" de `CLAUDE.md`: subir
+esta vuelta a `prueba.ringopet.com.ar` y probar la compra completa
+(transferencia y Mercado Pago) siguiendo los pasos de arriba, borrar los
+pedidos de prueba (#14992, #14994, revisar #14993), confirmar CVU/Alias en
+`ringopet-pedido`, agregar el `DirectoryIndex` y la redirección de
+`/shop/` al `.htaccess` real, y revisar el peso de las imágenes de algunos
+productos (ver Lighthouse en `CLAUDE.md`).
