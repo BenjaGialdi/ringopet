@@ -1,0 +1,113 @@
+---
+import Base from '../../layouts/Base.astro';
+
+// Mismo valor y mismo texto que el <select> de localidad del checkout clásico de WooCommerce (relevado en prueba.ringopet.com.ar).
+const localidades = [
+  { valor: 'Córdoba', texto: 'Córdoba capital (incluye Argüello, Valle Escondido y V. Belgrano)' },
+  { valor: 'La Calera', texto: 'La Calera' },
+  { valor: 'Saldán', texto: 'Saldán' },
+  { valor: 'Villa Allende', texto: 'Villa Allende' },
+  { valor: 'Mendiolaza', texto: 'Mendiolaza' },
+  { valor: 'Unquillo', texto: 'Unquillo' },
+  { valor: 'Río Ceballos', texto: 'Río Ceballos' },
+];
+---
+
+<Base titulo="Finalizar compra" noindex>
+  <section class="contenedor py-8">
+    <h1 class="text-3xl sm:text-4xl">Finalizar compra</h1>
+
+    <p data-checkout-vacio class="py-16 text-center text-texto-suave" hidden>
+      Tu carrito está vacío. <a href="/" class="text-primario-oscuro underline underline-offset-2">Ver productos</a>
+    </p>
+
+    <form data-form-checkout data-checkout-form hidden class="mt-6 grid gap-8 lg:grid-cols-[1fr_380px]" novalidate>
+      <div class="space-y-8">
+        <section>
+          <h2 class="text-xl">Tus datos</h2>
+          <div class="mt-3 grid gap-4 sm:grid-cols-2">
+            <div data-campo="first_name">
+              <label for="first_name" class="text-sm font-medium">Nombre *</label>
+              <input id="first_name" name="first_name" type="text" required class="mt-1 min-h-11 w-full rounded-lg border border-borde px-3" />
+            </div>
+            <div data-campo="last_name">
+              <label for="last_name" class="text-sm font-medium">Apellido *</label>
+              <input id="last_name" name="last_name" type="text" required class="mt-1 min-h-11 w-full rounded-lg border border-borde px-3" />
+            </div>
+            <div data-campo="phone">
+              <label for="phone" class="text-sm font-medium">Teléfono *</label>
+              <input id="phone" name="phone" type="tel" required class="mt-1 min-h-11 w-full rounded-lg border border-borde px-3" />
+            </div>
+            <div data-campo="email">
+              <label for="email" class="text-sm font-medium">Email *</label>
+              <input id="email" name="email" type="email" required class="mt-1 min-h-11 w-full rounded-lg border border-borde px-3" />
+            </div>
+          </div>
+        </section>
+
+        <section>
+          <h2 class="text-xl">Entrega</h2>
+          <div class="mt-3 grid gap-4 sm:grid-cols-2">
+            <div class="sm:col-span-2" data-campo="address_1">
+              <label for="address_1" class="text-sm font-medium">Calle y número *</label>
+              <input id="address_1" name="address_1" type="text" required class="mt-1 min-h-11 w-full rounded-lg border border-borde px-3" />
+            </div>
+            <div data-campo="address_2">
+              <label for="address_2" class="text-sm font-medium">Piso, depto o barrio cerrado (opcional)</label>
+              <input id="address_2" name="address_2" type="text" class="mt-1 min-h-11 w-full rounded-lg border border-borde px-3" />
+            </div>
+            <div data-campo="city">
+              <label for="city" class="text-sm font-medium">Localidad *</label>
+              <select id="city" name="city" required class="mt-1 min-h-11 w-full rounded-lg border border-borde px-3">
+                <option value="">Elegí tu localidad</option>
+                {localidades.map((loc) => <option value={loc.valor}>{loc.texto}</option>)}
+              </select>
+            </div>
+            <div data-campo="postcode">
+              <label for="postcode" class="text-sm font-medium">Código postal *</label>
+              <input id="postcode" name="postcode" type="text" required class="mt-1 min-h-11 w-full rounded-lg border border-borde px-3" />
+            </div>
+          </div>
+        </section>
+
+        <section data-campo="fecha">
+          <h2 class="text-xl">Fecha de entrega *</h2>
+          <div data-dias-entrega class="mt-3 flex flex-wrap gap-2"></div>
+          <h2 class="mt-5 text-xl" data-campo="turno">Turno de entrega *</h2>
+          <div data-turnos-entrega class="mt-3 flex flex-wrap gap-2"></div>
+          <p data-nota-entrega class="mt-3 text-sm text-texto-suave"></p>
+        </section>
+
+        <section>
+          <label for="notas" class="text-xl">Notas del pedido (opcional)</label>
+          <textarea id="notas" name="customer_note" rows="3" class="mt-3 w-full rounded-lg border border-borde px-3 py-2"></textarea>
+        </section>
+      </div>
+
+      <aside class="h-fit space-y-5 rounded-xl border border-borde p-5">
+        <div>
+          <h2 class="text-lg">Tu pedido</h2>
+          <ul data-resumen-items class="mt-2 divide-y divide-borde"></ul>
+          <div class="mt-2 flex justify-between border-t border-borde pt-2 text-base font-semibold">
+            <span>Total</span>
+            <span data-resumen-total>$ 0,00</span>
+          </div>
+        </div>
+
+        <div>
+          <h2 class="text-lg">Medio de pago</h2>
+          <div data-medios-pago class="mt-2 space-y-2"></div>
+        </div>
+
+        <div data-checkout-errores aria-live="polite" class="space-y-2"></div>
+
+        <button type="submit" data-boton-pagar class="boton w-full disabled:cursor-not-allowed disabled:opacity-50">Pagar pedido</button>
+      </aside>
+    </form>
+  </section>
+</Base>
+
+<script>
+  import { iniciarPaginaCheckout } from '../../scripts/pagina-checkout';
+  iniciarPaginaCheckout();
+</script>
