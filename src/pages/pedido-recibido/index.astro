@@ -1,0 +1,61 @@
+---
+import Base from '../../layouts/Base.astro';
+---
+
+<Base titulo="Pedido recibido" noindex>
+  <section class="contenedor py-8">
+    <p data-gracias-cargando class="py-16 text-center text-texto-suave">Buscando tu pedido...</p>
+
+    <div data-gracias-error hidden class="py-16 text-center">
+      <h1 class="text-3xl">No encontramos ese pedido</h1>
+      <p class="mt-3 text-texto-suave">Revisá el enlace que te llegó por email, o escribinos si necesitás ayuda.</p>
+      <a href="/" class="boton mt-6 inline-block">Ir al inicio</a>
+    </div>
+
+    <div data-gracias-contenido hidden class="mx-auto max-w-2xl">
+      <div class="text-center" data-reveal>
+        <svg viewBox="0 0 24 24" width="56" height="56" fill="none" stroke="currentColor" stroke-width="1.5" class="mx-auto text-primario-oscuro" aria-hidden="true" focusable="false">
+          <circle cx="12" cy="12" r="10" /><path d="m8 12 3 3 5-6" />
+        </svg>
+        <h1 class="mt-3 text-3xl sm:text-4xl">¡Gracias por tu compra!</h1>
+        <p class="mt-2 text-texto-suave">Pedido <strong data-numero></strong> · <span data-estado></span></p>
+      </div>
+
+      <div data-entrega hidden class="mt-8 rounded-xl border border-borde p-5">
+        <p><span data-etiqueta-fecha class="font-medium"></span>: <span data-valor-fecha></span></p>
+        <p class="mt-1"><span data-etiqueta-turno class="font-medium"></span>: <span data-valor-turno></span></p>
+      </div>
+
+      <div class="mt-6 rounded-xl border border-borde p-5">
+        <h2 class="text-lg">Tu pedido</h2>
+        <ul data-items class="mt-2 divide-y divide-borde"></ul>
+        <div class="mt-3 flex justify-between border-t border-borde pt-3 text-lg font-semibold">
+          <span>Total</span>
+          <span data-total></span>
+        </div>
+        <p class="mt-2 text-sm text-texto-suave">Medio de pago: <span data-metodo-pago></span></p>
+      </div>
+
+      <div data-transferencia hidden class="mt-6 rounded-xl border-2 border-primario bg-fondo-suave p-5">
+        <h2 class="text-lg">Datos para transferir</h2>
+        <dl class="mt-2 space-y-1 text-sm">
+          <div><dt class="inline font-medium">Titular:</dt> <dd class="inline" data-titular></dd></div>
+          <div><dt class="inline font-medium">CVU:</dt> <dd class="inline" data-cvu></dd></div>
+          <div><dt class="inline font-medium">Alias:</dt> <dd class="inline" data-alias></dd></div>
+        </dl>
+        <a data-whatsapp-comprobante href="#" target="_blank" rel="noopener" class="boton mt-4 inline-flex items-center gap-2 bg-[#25D366]">
+          Mandar el comprobante por WhatsApp
+        </a>
+      </div>
+
+      <div class="mt-8 text-center">
+        <a href="/" class="boton-borde">Seguir comprando</a>
+      </div>
+    </div>
+  </section>
+</Base>
+
+<script>
+  import { iniciarPaginaGracias } from '../../scripts/pagina-gracias';
+  iniciarPaginaGracias();
+</script>
