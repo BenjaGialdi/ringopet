@@ -106,9 +106,16 @@ export interface CuponCarrito {
   totals: { total_discount: string };
 }
 
+export interface FeeCarrito {
+  id: string;
+  name: string;
+  totals: { total: string; total_tax: string };
+}
+
 export interface TotalesCarrito {
   total_items: string;
   total_discount: string;
+  total_fees: string;
   total_shipping: string | null;
   total_price: string;
   currency_minor_unit: number;
@@ -132,6 +139,7 @@ export interface Carrito {
   items: ItemCarrito[];
   items_count: number;
   coupons: CuponCarrito[];
+  fees: FeeCarrito[];
   totals: TotalesCarrito;
   shipping_address: DireccionCarrito | null;
   billing_address: DireccionCarrito | null;

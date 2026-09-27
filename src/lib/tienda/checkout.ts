@@ -5,7 +5,14 @@
  * dominio donde está publicado el sitio.
  */
 import { llamarApi } from './api-navegador';
-import type { DireccionCarrito, Disponibilidad, DetallePedido, RespuestaCheckout } from './tipos';
+import type { DireccionCarrito, Disponibilidad, DetallePedido, RespuestaCheckout, Carrito } from './tipos';
+
+export interface BorradorCheckout {
+  customer_id: number;
+  payment_method: string;
+  /** El carrito con los totales ya recalculados para el payment_method del borrador. */
+  __experimentalCart: Carrito;
+}
 
 export interface DatosCheckout {
   billing_address: DireccionCarrito;
@@ -24,6 +31,20 @@ export interface DatosCheckout {
 
 export function pagar(datos: DatosCheckout): Promise<RespuestaCheckout> {
   return llamarApi('/checkout', { method: 'POST', body: JSON.stringify(datos) });
+}
+
+export function obtenerBorradorCheckout(): Promise<BorradorCheckout> {
+  return llamarApi('/checkout');
+}
+
+/**
+ * Avisa a WooCommerce qué medio de pago se eligió, SIN pagar todavía (PUT, no
+ * POST): así, si algún plugin agrega un descuento o un recargo según el medio
+ * de pago, el carrito ya recalculado. Devuelve el carrito actualizado.
+ */
+export async function actualizarMedioDePago(payment_method: string): Promise<Carrito> {
+  const borrador = await llamarApi<BorradorCheckout>('/checkout', { method: 'PUT', body: JSON.stringify({ payment_method }) });
+  return borrador.__experimentalCart;
 }
 
 export async function obtenerDisponibilidadEntrega(): Promise<Disponibilidad> {
