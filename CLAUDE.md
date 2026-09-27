@@ -4,6 +4,19 @@ Las reglas generales están en `C:\sitios\CLAUDE.md`. Acá va lo específico de
 este sitio, que es distinto al resto: no reemplaza a WordPress, convive con
 él en el mismo dominio.
 
+## Regla fija: Astro es solo el frente
+
+Todo dato de negocio se configura en WooCommerce y Astro lo lee de ahí en el
+momento (build o navegador, según corresponda). **Nunca** escribir en el
+código: datos bancarios, medios de pago (ni sus títulos), precios, mínimos
+de compra, turnos, zonas/localidades ni textos que ya se manejan desde Woo.
+Si un dato hace falta y no se encuentra un ajuste de Woo (ni un plugin con
+API) que lo tenga, no inventarlo ni copiarlo del HTML como texto fijo:
+dejarlo marcado en el código con un comentario `PENDIENTE` explicando qué
+falta y avisar en el informe, para decidir entre (a) armar un endpoint de
+solo lectura nuevo como los de `wp-plugin/` o (b) confirmar que ese dato no
+vive en Woo y va a seguir siendo un valor fijo a propósito.
+
 ## Arquitectura
 
 - **WooCommerce es back-end**: WordPress + WoodMart siguen procesando los
@@ -275,11 +288,19 @@ plugin agrega `GET /wp-json/ringopet/v1/pedido/<id>?key=<clave>` (la clave
 del pedido alcanza, no hace falta el email) con todo lo que falta,
 incluidos los datos de transferencia (de WooCommerce > Pagos >
 Transferencia bancaria — **ojo**: WooCommerce no tiene campos nativos
-CVU/Alias, se mapea `account_number` → CVU y `iban` → Alias; revisar y
-ajustar si en esa pantalla se cargó distinto). También filtra
-`woocommerce_get_checkout_order_received_url` para que toda vuelta de pago
-(incluida Mercado Pago) caiga en `/pedido-recibido/` de Astro. Detalle en
-`wp-plugin/README.md`.
+CVU/Alias, se mapea `account_number` → CVU y `iban` → Alias, siempre con
+los VALORES que haya cargados en esa pantalla; lo único que decide Astro
+es el rótulo. Revisar que el mapeo de campos sea el correcto). También
+filtra `woocommerce_get_checkout_order_received_url` para que toda vuelta
+de pago (incluida Mercado Pago) caiga en `/pedido-recibido/` de Astro.
+Detalle en `wp-plugin/README.md`.
+
+También agrega `GET /wp-json/ringopet/v1/medios-pago`: id → título de cada
+medio de pago habilitado, tal cual está en WooCommerce > Ajustes > Pagos >
+[medio] > Título (información pública, ya se ve en cualquier checkout sin
+sesión). `pagina-checkout.ts` lo usa para no tener "Transferencia bancaria"
+/"Mercado Pago" escritos a mano — si cambia el título en Woo, cambia solo
+en el sitio.
 
 ## Sin local ni dirección física
 
@@ -379,6 +400,15 @@ npm run preview  # sirve dist/ ya generado
 
 ## Pendiente / a confirmar con Benja antes de publicar en el sitio real
 
+- **Localidades del checkout** (`src/pages/finalizar-compra/index.astro`):
+  no encontré de dónde las arma WooCommerce (no es un ajuste nativo ni de
+  ningún plugin con API pública instalado). Quedaron escritas a mano,
+  marcadas con `PENDIENTE` en el código — decime dónde están cargadas de
+  verdad y armo un endpoint de solo lectura.
+- **Número de WhatsApp** (`src/config/sitio.ts`): no es un dato de
+  WooCommerce (no hay plugin de WhatsApp instalado). Me lo pasaste por
+  chat, marcado con `PENDIENTE` en el código por si en algún momento pasa
+  a vivir en un plugin con su propio ajuste.
 - **Subir el build a `prueba.ringopet.com.ar`** (ver README.md, "Probar en
   prueba.ringopet.com.ar") y probar ahí de punta a punta: carrito, pago con
   transferencia y con Mercado Pago, `/pedido-recibido/`, pedido visible en
