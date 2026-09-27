@@ -21,7 +21,44 @@ final class RingoPet_Pedido {
 
 	public static function iniciar() {
 		add_action( 'rest_api_init', array( __CLASS__, 'registrar_ruta' ) );
+		add_action( 'rest_api_init', array( __CLASS__, 'registrar_ruta_medios_pago' ) );
 		add_filter( 'woocommerce_get_checkout_order_received_url', array( __CLASS__, 'redirigir_a_gracias_astro' ), 20, 2 );
+	}
+
+	/* ------------------------------------------------------------------ */
+	/* Medios de pago: el título que ya está en WooCommerce > Pagos        */
+	/* ------------------------------------------------------------------ */
+
+	public static function registrar_ruta_medios_pago() {
+		register_rest_route(
+			self::ESPACIO,
+			'/medios-pago',
+			array(
+				'methods'             => 'GET',
+				'permission_callback' => '__return_true',
+				'callback'            => array( __CLASS__, 'responder_medios_pago' ),
+			)
+		);
+	}
+
+	/**
+	 * Mismo título que ya ve cualquier visitante en el checkout clásico
+	 * (Ajustes > Pagos > cada medio > Título): es información pública, no
+	 * hace falta sesión para leerla.
+	 */
+	public static function responder_medios_pago() {
+		if ( ! headers_sent() ) {
+			nocache_headers();
+		}
+		// is_available() de algunos medios de pago mira el carrito (moneda, si necesita envío, etc.).
+		if ( function_exists( 'wc_load_cart' ) && null === WC()->cart ) {
+			wc_load_cart();
+		}
+		$medios = array();
+		foreach ( WC()->payment_gateways()->get_available_payment_gateways() as $id => $gateway ) {
+			$medios[ $id ] = $gateway->get_title();
+		}
+		return rest_ensure_response( $medios );
 	}
 
 	/* ------------------------------------------------------------------ */

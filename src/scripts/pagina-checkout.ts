@@ -5,15 +5,10 @@
  * marca el campo, como pidió Benja.
  */
 import { obtenerCarrito, actualizarCliente } from '../lib/tienda/carrito';
-import { pagar, obtenerDisponibilidadEntrega } from '../lib/tienda/checkout';
+import { pagar, obtenerDisponibilidadEntrega, obtenerTitulosMediosPago } from '../lib/tienda/checkout';
 import { llamarApi, ErrorApi } from '../lib/tienda/api-navegador';
 import { formatearPrecio } from '../lib/moneda';
 import type { Carrito, DireccionCarrito, Disponibilidad, DiaEntrega } from '../lib/tienda/tipos';
-
-const TITULOS_PAGO: Record<string, string> = {
-  bacs: 'Transferencia bancaria',
-  'woo-mercado-pago-basic': 'Mercado Pago',
-};
 
 interface EstadoCheckout {
   disponibilidad: Disponibilidad | null;
@@ -39,7 +34,7 @@ export function iniciarPaginaCheckout() {
 
   const estado: EstadoCheckout = { disponibilidad: null, diaElegido: null, turnoElegido: '' };
 
-  function pintarResumen(carrito: Carrito) {
+  function pintarResumen(carrito: Carrito, titulosPago: Record<string, string>) {
     if (resumenEl) {
       resumenEl.innerHTML = carrito.items
         .map(
@@ -52,12 +47,11 @@ export function iniciarPaginaCheckout() {
 
     if (pagoEl) {
       pagoEl.innerHTML = carrito.payment_methods
-        .filter((id) => TITULOS_PAGO[id])
         .map(
           (id, i) => `
             <label class="flex min-h-11 cursor-pointer items-center gap-3 rounded-lg border-2 border-borde px-4 has-checked:border-primario">
               <input type="radio" name="payment_method" value="${id}" class="h-4 w-4 accent-primario" ${i === 0 ? 'checked' : ''} required />
-              ${TITULOS_PAGO[id]}
+              ${titulosPago[id] ?? id}
             </label>`,
         )
         .join('');
@@ -227,7 +221,10 @@ export function iniciarPaginaCheckout() {
       elForm.hidden = true;
       return;
     }
-    const disponibilidad = await obtenerDisponibilidadEntrega().catch(() => null);
+    const [disponibilidad, titulosPago] = await Promise.all([
+      obtenerDisponibilidadEntrega().catch(() => null),
+      obtenerTitulosMediosPago().catch(() => ({}) as Record<string, string>),
+    ]);
 
     if (carrito.items.length === 0) {
       elVacio.hidden = false;
@@ -236,7 +233,7 @@ export function iniciarPaginaCheckout() {
     }
     elVacio.hidden = true;
     elForm.hidden = false;
-    pintarResumen(carrito);
+    pintarResumen(carrito, titulosPago);
 
     // Precarga lo que ya sabe WooCommerce del cliente (sesión iniciada o dirección guardada).
     const direccion = carrito.shipping_address?.first_name ? carrito.shipping_address : carrito.billing_address;

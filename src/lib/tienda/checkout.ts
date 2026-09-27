@@ -40,3 +40,10 @@ export async function obtenerPedido(id: number, clave: string): Promise<DetalleP
   if (!respuesta.ok) throw new Error(cuerpo?.message ?? 'No encontramos ese pedido.');
   return cuerpo;
 }
+
+/** Título de cada medio de pago tal como está cargado en WooCommerce > Ajustes > Pagos (id -> título). */
+export async function obtenerTitulosMediosPago(): Promise<Record<string, string>> {
+  const respuesta = await fetch('/wp-json/ringopet/v1/medios-pago', { headers: { Accept: 'application/json' } });
+  if (!respuesta.ok) throw new Error('No se pudieron consultar los medios de pago.');
+  return respuesta.json();
+}

@@ -60,6 +60,11 @@ pedido ni fecha/turno de entrega — le faltaba lo que necesita
 - Manda **todas** las vueltas de pago (transferencia y Mercado Pago) a
   `/pedido-recibido/?pedido=<id>&key=<clave>` en vez de la página de
   WordPress (`woocommerce_get_checkout_order_received_url`).
+- `GET /wp-json/ringopet/v1/medios-pago`: id → título de cada medio de pago
+  habilitado, igual que **WooCommerce > Ajustes > Pagos > [medio] >
+  Título** (información pública, sin datos sensibles). Lo usa
+  `/finalizar-compra/` para no tener los nombres de los medios de pago
+  escritos a mano.
 
 **Revisar**: WooCommerce no tiene campos nativos "CVU" ni "Alias" (son de
 Argentina). El plugin lee `account_number` como CVU y `iban` como Alias de
