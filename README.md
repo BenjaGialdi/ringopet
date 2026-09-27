@@ -47,6 +47,17 @@ archivo existente: las rutas virtuales de WooCommerce (`/carrito/`,
 `/finalizar-compra/`, `/mi-cuenta/`) no son carpetas reales, así que la regla
 de WordPress las sigue agarrando igual que hoy.
 
+Agregar también, en el mismo bloque: `/shop/` es el archivo de productos
+que genera WooCommerce/WoodMart, que ya no se usa (la navegación real es la
+de Astro). Redirige a la portada:
+
+```apache
+RewriteRule ^shop/?$ / [R=301,L]
+```
+
+Esta línea sí necesita `mod_rewrite` activo (`<IfModule mod_rewrite.c>` —
+normalmente ya está, junto con el bloque de WordPress).
+
 Opcional, buena práctica (no imprescindible): bloquear el archivo de estado
 que deja la publicación por FTP, para que no se pueda ver desde afuera.
 Se puede agregar como parte del mismo bloque:

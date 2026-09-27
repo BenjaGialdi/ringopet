@@ -135,26 +135,28 @@ archivos fijos, ahí Astro optimiza gratis).
     `wp/v2/product`, que a diferencia de la Store API no filtra por stock)
     y hasta 5 `<image:image>` con las fotos del producto,
   - las páginas de WordPress que siguen vivas (`wp/v2/pages`), salvo
-    `/carrito/`, `/finalizar-compra/` y `/mi-cuenta/` (ya llevan
-    `noindex, nofollow` propio de WooCommerce, verificado) y la home de
-    WordPress (la reemplaza la portada de Astro).
-
-  **Ojo**: de las páginas de WordPress que trajo la API, cuatro son
-  contenido real (`/mayorista/`, `/envios-y-preguntas-frecuentes/`,
-  `/contacto/`, `/about-us/`) pero otras cinco tienen toda la pinta de ser
-  demo/utilitarias del tema o de un plugin y **quedaron incluidas en el
-  sitemap tal cual pediste** (excluir solo carrito/pago/mi cuenta): `/driver/`,
-  `/tracking/`, `/wishlist/`, `/ideas-for-breakfest/` (título "Blog", contenido
-  de ejemplo de WoodMart) y `/shop/` (un archivo de WooCommerce genérico,
-  no la navegación real del sitio). Si no son páginas que querés indexadas,
-  lo más prolijo es despublicarlas o borrarlas en WordPress (Páginas): el
-  sitemap las saca solas en el próximo build, sin tocar código.
+    `/carrito/`, `/finalizar-compra/`, `/mi-cuenta/` (ya llevan
+    `noindex, nofollow` propio de WooCommerce, verificado), `/driver/` y
+    `/tracking/` (del plugin de repartos, con noindex propio agregado desde
+    el plugin, ver más abajo), `/shop/` (el archivo de WooCommerce, redirige
+    301 a la portada — ver `README.md`) y la home de WordPress (la
+    reemplaza la portada de Astro). `/ideas-for-breakfest/` y `/wishlist/`
+    (contenido de ejemplo de WoodMart) ya se borraron en WordPress: quedan
+    afuera solos, sin necesidad de excluirlas a mano.
 
 - **`robots.txt`** (`src/pages/robots.txt.ts`): permite todo por defecto,
-  incluido `/wp-json/` y `/wp-content/` (ahí están la API que lee Astro y
-  las imágenes). Bloquea `/carrito/`, `/finalizar-compra/`, `/mi-cuenta/` y
-  `/wp-admin/` (con `/wp-admin/admin-ajax.php` permitido, lo usan temas y
-  plugins desde el front). Apunta a `/sitemap.xml`.
+  incluido `/wp-json/`, `/wp-content/`, `/carrito/`, `/finalizar-compra/` y
+  `/mi-cuenta/` (bloquearlas en robots.txt le impediría a Google leer el
+  `noindex, nofollow` propio que ya tienen). Solo bloquea `/wp-admin/` (con
+  `/wp-admin/admin-ajax.php` permitido, lo usan temas y plugins desde el
+  front). Apunta a `/sitemap.xml`.
+
+- **`/driver/` y `/tracking/`** (páginas del plugin de repartos): siguen
+  funcionando para quien las use, pero no están en el sitemap y llevan
+  `noindex` agregado desde `wp-plugin/ringopet-regenerar/` con el filtro
+  `wp_robots` de WordPress (`is_page(['driver', 'tracking'])`, por slug). No
+  están bloqueadas en robots.txt: bloquear + noindex a la vez es
+  redundante y le complica a Google leer el noindex.
 
 - **Sitemap nativo de WordPress apagado por el plugin**: `wp-plugin/ringopet-regenerar/`
   agrega `add_filter('wp_sitemaps_enabled', '__return_false')`, así
@@ -283,9 +285,8 @@ npm run preview  # sirve dist/ ya generado
   `/finalizar-compra/`, `/mi-cuenta/`; sí cachear los archivos de Astro. Se
   configura en el panel, no desde el repositorio.
 - **Imágenes sin tamaños intermedios** en WordPress (ver "Imágenes").
-- **Páginas demo en el sitemap** (`/driver/`, `/tracking/`, `/wishlist/`,
-  `/ideas-for-breakfest/`, `/shop/`): revisar si hay que despublicarlas en
-  WordPress (ver "SEO").
+- **Redirección de `/shop/`**: agregar la línea del `.htaccess` (ver
+  `README.md`) junto con el `DirectoryIndex`.
 - **WoodMart**: para que el paso de Astro a `/finalizar-compra/` no se
   sienta como otro sitio, conviene que el encabezado/pie de WoodMart usen
   el mismo naranja (`#F95D00`) y tipografía que quedaron acá. No se tocó
