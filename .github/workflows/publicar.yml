@@ -1,0 +1,65 @@
+name: Publicar en Hostinger
+
+# Se dispara con: push a main, a mano (workflow_dispatch), cuando el plugin de
+# WordPress avisa que hay productos nuevos (repository_dispatch: regenerar) y
+# todos los días a las 09:00 UTC (06:00 en Argentina) por si algo se escapó.
+# Instala, revisa tipos, lee el catálogo de WOO_URL, genera el sitio y sube
+# dist/ a public_html por FTP sin borrar nada (ahí vive WordPress).
+#
+# Secretos necesarios (Settings > Secrets and variables > Actions):
+#   FTP_SERVIDOR, FTP_USUARIO, FTP_CLAVE
+# Variable necesaria (Settings > Secrets and variables > Actions > Variables):
+#   WOO_URL = https://ringopet.com.ar  (sin barra final)
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+  repository_dispatch:
+    types: [regenerar]
+  schedule:
+    - cron: '0 9 * * *'
+
+concurrency:
+  group: publicar
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  publicar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Revisar tipos y contenido
+        run: npx astro check
+        env:
+          WOO_URL: ${{ vars.WOO_URL }}
+
+      - name: Generar el sitio (lee el catálogo de WooCommerce)
+        run: npm run build
+        env:
+          WOO_URL: ${{ vars.WOO_URL }}
+
+      - name: Subir dist/ por FTP
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_SERVIDOR }}
+          username: ${{ secrets.FTP_USUARIO }}
+          password: ${{ secrets.FTP_CLAVE }}
+          # FTP con TLS explícito. Si el servidor no lo admite, cambiá a "ftp".
+          protocol: ftps
+          local-dir: ./dist/
+          server-dir: public_html/
+          # Sincroniza solo lo que cambió, comparando con .ftp-deploy-sync-state.json (queda en public_html
+          # y el .htaccess lo bloquea). NO borra archivos del servidor que no estén en dist/ (ahí vive WordPress).
+          dangerous-clean-slate: false
