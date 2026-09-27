@@ -1,5 +1,4 @@
 import { defineConfig, fontProviders } from 'astro/config';
-import sitemap from '@astrojs/sitemap';
 import tailwindcss from '@tailwindcss/vite';
 import { sitio } from './src/config/sitio';
 
@@ -28,12 +27,8 @@ export default defineConfig({
     // Sin pedido extra de CSS: el sitio es chico y así no bloquea el render.
     inlineStylesheets: 'always',
   },
-  integrations: [
-    sitemap({
-      // gracias y 404 no se indexan ni entran al sitemap.
-      filter: (pagina) => !/\/(gracias|404)\/?$/.test(pagina),
-    }),
-  ],
+  // Sitemap propio en src/pages/sitemap.xml.ts (necesita lastmod real de WooCommerce
+  // e imágenes de producto, que @astrojs/sitemap no arma solo).
   vite: { plugins: [tailwindcss()] },
   fonts: fuentes,
 });
