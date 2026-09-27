@@ -12,17 +12,27 @@ function actualizarContadores(carrito: Carrito) {
 }
 
 export function iniciarPaginaCarrito() {
-  const vacio = document.querySelector<HTMLElement>('[data-carrito-vacio]');
-  const contenido = document.querySelector<HTMLElement>('[data-carrito-contenido]');
-  const lista = document.querySelector<HTMLElement>('[data-carrito-items]');
-  const erroresEl = document.querySelector<HTMLElement>('[data-carrito-errores]');
-  const cuponesEl = document.querySelector<HTMLElement>('[data-carrito-cupones]');
-  const subtotalEl = document.querySelector<HTMLElement>('[data-carrito-subtotal]');
-  const filaDescuento = document.querySelector<HTMLElement>('[data-fila-descuento]');
-  const descuentoEl = document.querySelector<HTMLElement>('[data-carrito-descuento]');
-  const totalEl = document.querySelector<HTMLElement>('[data-carrito-total]');
-  const botonFinalizar = document.querySelector<HTMLAnchorElement>('[data-boton-finalizar]');
-  const formCupon = document.querySelector<HTMLFormElement>('[data-form-cupon]');
+  // Ojo: el panel lateral del encabezado (siempre presente) usa los mismos nombres de
+  // atributo (data-carrito-items, data-carrito-subtotal, etc.). Todo se busca DENTRO de
+  // [data-pagina-carrito] para no pisar ni leer del panel lateral por error.
+  const raiz = document.querySelector<HTMLElement>('[data-pagina-carrito]');
+  if (!raiz) return;
+  const q = <T extends HTMLElement>(selector: string) => raiz.querySelector<T>(selector);
+
+  const vacio = q<HTMLElement>('[data-carrito-vacio]');
+  const contenido = q<HTMLElement>('[data-carrito-contenido]');
+  const lista = q<HTMLElement>('[data-carrito-items]');
+  const erroresEl = q<HTMLElement>('[data-carrito-errores]');
+  const cuponesEl = q<HTMLElement>('[data-carrito-cupones]');
+  const subtotalEl = q<HTMLElement>('[data-carrito-subtotal]');
+  const filaDescuento = q<HTMLElement>('[data-fila-descuento]');
+  const descuentoEl = q<HTMLElement>('[data-carrito-descuento]');
+  const feesEl = q<HTMLElement>('[data-carrito-fees]');
+  const filaEnvio = q<HTMLElement>('[data-fila-envio]');
+  const envioEl = q<HTMLElement>('[data-carrito-envio]');
+  const totalEl = q<HTMLElement>('[data-carrito-total]');
+  const botonFinalizar = q<HTMLAnchorElement>('[data-boton-finalizar]');
+  const formCupon = q<HTMLFormElement>('[data-form-cupon]');
   if (!vacio || !contenido || !lista) return;
 
   function pintar(carrito: Carrito) {
@@ -30,6 +40,12 @@ export function iniciarPaginaCarrito() {
     const hayItems = carrito.items.length > 0;
     vacio!.hidden = hayItems;
     contenido!.hidden = !hayItems;
+
+    // Los avisos de WooCommerce (mínimo de compra, stock ajustado, etc.) se muestran
+    // siempre, tenga o no items el carrito.
+    if (erroresEl) {
+      erroresEl.innerHTML = carrito.errors.map((e) => `<p class="rounded-lg bg-fondo-suave p-3 text-sm" role="alert">${e.message}</p>`).join('');
+    }
     if (!hayItems) return;
 
     lista!.innerHTML = carrito.items
@@ -74,12 +90,6 @@ export function iniciarPaginaCarrito() {
       });
     });
 
-    if (erroresEl) {
-      erroresEl.innerHTML = carrito.errors
-        .map((e) => `<p class="rounded-lg bg-fondo-suave p-3 text-sm text-texto" role="alert">${e.message}</p>`)
-        .join('');
-    }
-
     if (cuponesEl) {
       cuponesEl.innerHTML = carrito.coupons
         .map(
@@ -92,11 +102,33 @@ export function iniciarPaginaCarrito() {
       });
     }
 
-    if (subtotalEl) subtotalEl.textContent = formatearPrecio(carrito.totals.total_items, carrito.totals.currency_minor_unit, carrito.totals.currency_prefix, carrito.totals.currency_suffix);
-    const hayDescuento = Number(carrito.totals.total_discount) > 0;
+    const t = carrito.totals;
+    if (subtotalEl) subtotalEl.textContent = formatearPrecio(t.total_items, t.currency_minor_unit, t.currency_prefix, t.currency_suffix);
+
+    const hayDescuento = Number(t.total_discount) > 0;
     if (filaDescuento) filaDescuento.hidden = !hayDescuento;
-    if (descuentoEl && hayDescuento) descuentoEl.textContent = `-${formatearPrecio(carrito.totals.total_discount, carrito.totals.currency_minor_unit, carrito.totals.currency_prefix, carrito.totals.currency_suffix)}`;
-    if (totalEl) totalEl.textContent = formatearPrecio(carrito.totals.total_price, carrito.totals.currency_minor_unit, carrito.totals.currency_prefix, carrito.totals.currency_suffix);
+    if (descuentoEl && hayDescuento) descuentoEl.textContent = `-${formatearPrecio(t.total_discount, t.currency_minor_unit, t.currency_prefix, t.currency_suffix)}`;
+
+    if (feesEl) {
+      feesEl.innerHTML = carrito.fees
+        .map(
+          (fee) => `
+            <div class="flex justify-between">
+              <dt>${fee.name}</dt>
+              <dd>${formatearPrecio(fee.totals.total, t.currency_minor_unit, t.currency_prefix, t.currency_suffix)}</dd>
+            </div>`,
+        )
+        .join('');
+    }
+
+    const hayEnvio = carrito.needs_shipping && t.total_shipping !== null;
+    if (filaEnvio) filaEnvio.hidden = !hayEnvio;
+    if (envioEl && hayEnvio) {
+      const monto = Number(t.total_shipping);
+      envioEl.textContent = monto === 0 ? 'Gratis' : formatearPrecio(t.total_shipping!, t.currency_minor_unit, t.currency_prefix, t.currency_suffix);
+    }
+
+    if (totalEl) totalEl.textContent = formatearPrecio(t.total_price, t.currency_minor_unit, t.currency_prefix, t.currency_suffix);
 
     const bloqueado = carrito.errors.length > 0;
     if (botonFinalizar) {

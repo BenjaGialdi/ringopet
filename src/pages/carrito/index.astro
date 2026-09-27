@@ -3,7 +3,7 @@ import Base from '../../layouts/Base.astro';
 ---
 
 <Base titulo="Carrito de compra" noindex>
-  <section class="contenedor py-8">
+  <section class="contenedor py-8" data-pagina-carrito>
     <h1 class="text-3xl sm:text-4xl">Carrito de compra</h1>
 
     <p data-carrito-vacio class="py-16 text-center text-texto-suave" hidden>
@@ -11,11 +11,12 @@ import Base from '../../layouts/Base.astro';
     </p>
 
     <div data-carrito-contenido hidden class="mt-6 grid gap-8 lg:grid-cols-[1fr_360px]">
-      <ul data-carrito-items class="divide-y divide-borde"></ul>
+      <div>
+        <div data-carrito-errores class="mb-4 space-y-2" aria-live="polite"></div>
+        <ul data-carrito-items class="divide-y divide-borde"></ul>
+      </div>
 
       <aside class="h-fit rounded-xl border border-borde p-5">
-        <div data-carrito-errores class="mb-4 space-y-2" aria-live="polite"></div>
-
         <form data-form-cupon class="flex gap-2">
           <label for="cupon" class="sr-only">Código de cupón</label>
           <input id="cupon" type="text" placeholder="Código de cupón" class="min-h-11 flex-1 rounded-lg border border-borde px-3" />
@@ -31,6 +32,11 @@ import Base from '../../layouts/Base.astro';
           <div class="flex justify-between" data-fila-descuento hidden>
             <dt>Descuento</dt>
             <dd data-carrito-descuento class="text-primario-oscuro">$ 0,00</dd>
+          </div>
+          <ul data-carrito-fees class="contents"></ul>
+          <div class="flex justify-between" data-fila-envio hidden>
+            <dt>Envío</dt>
+            <dd data-carrito-envio></dd>
           </div>
           <div class="flex justify-between text-base font-semibold text-texto">
             <dt>Total</dt>
