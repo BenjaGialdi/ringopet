@@ -1,0 +1,50 @@
+---
+import Base from '../../layouts/Base.astro';
+---
+
+<Base titulo="Carrito de compra" noindex>
+  <section class="contenedor py-8">
+    <h1 class="text-3xl sm:text-4xl">Carrito de compra</h1>
+
+    <p data-carrito-vacio class="py-16 text-center text-texto-suave" hidden>
+      Todavía no agregaste productos. <a href="/" class="text-primario-oscuro underline underline-offset-2">Seguir comprando</a>
+    </p>
+
+    <div data-carrito-contenido hidden class="mt-6 grid gap-8 lg:grid-cols-[1fr_360px]">
+      <ul data-carrito-items class="divide-y divide-borde"></ul>
+
+      <aside class="h-fit rounded-xl border border-borde p-5">
+        <div data-carrito-errores class="mb-4 space-y-2" aria-live="polite"></div>
+
+        <form data-form-cupon class="flex gap-2">
+          <label for="cupon" class="sr-only">Código de cupón</label>
+          <input id="cupon" type="text" placeholder="Código de cupón" class="min-h-11 flex-1 rounded-lg border border-borde px-3" />
+          <button type="submit" class="boton-borde px-4">Aplicar</button>
+        </form>
+        <ul data-carrito-cupones class="mt-3 space-y-1 text-sm"></ul>
+
+        <dl class="mt-4 space-y-2 border-t border-borde pt-4 text-sm">
+          <div class="flex justify-between">
+            <dt>Subtotal</dt>
+            <dd data-carrito-subtotal>$ 0,00</dd>
+          </div>
+          <div class="flex justify-between" data-fila-descuento hidden>
+            <dt>Descuento</dt>
+            <dd data-carrito-descuento class="text-primario-oscuro">$ 0,00</dd>
+          </div>
+          <div class="flex justify-between text-base font-semibold text-texto">
+            <dt>Total</dt>
+            <dd data-carrito-total>$ 0,00</dd>
+          </div>
+        </dl>
+
+        <a data-boton-finalizar href="/finalizar-compra/" class="boton mt-4 w-full">Finalizar compra</a>
+      </aside>
+    </div>
+  </section>
+</Base>
+
+<script>
+  import { iniciarPaginaCarrito } from '../../scripts/pagina-carrito';
+  iniciarPaginaCarrito();
+</script>
