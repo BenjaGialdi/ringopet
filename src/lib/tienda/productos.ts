@@ -21,27 +21,40 @@ function normalizar(p: Producto): Producto {
 
 let cache: Producto[] | null = null;
 
-/** Todos los productos del catálogo (build time, con caché en memoria para no repetir el fetch entre páginas). */
+/**
+ * Todos los productos padre del catálogo, con o sin stock (908 en producción:
+ * 380 con stock más 528 sin stock que WooCommerce oculta del catálogo por
+ * "ocultar productos agotados", pero la Store API los sigue devolviendo si se
+ * pide el estado de stock explícitamente). Se usa para generar TODAS las
+ * páginas de producto, incluidas las de "sin stock" (nunca se borran).
+ * Build time, con caché en memoria para no repetir el fetch entre páginas.
+ */
 export async function obtenerTodosLosProductos(): Promise<Producto[]> {
   if (cache) return cache;
-  cache = (await obtenerTodasLasPaginas<Producto>('/products')).map(normalizar);
+  cache = (await obtenerTodasLasPaginas<Producto>('/products', { stock_status: 'instock,outofstock,onbackorder' })).map(normalizar);
   return cache;
 }
 
-export async function obtenerProductoPorSlug(slug: string): Promise<Producto | null> {
-  const resultado = await obtenerJson<Producto[]>('/products', { slug });
-  return resultado[0] ? normalizar(resultado[0]) : null;
+/** Solo los que tienen stock: para portada, categorías, relacionados y búsqueda (nunca se listan los agotados). */
+export async function obtenerProductosEnStock(): Promise<Producto[]> {
+  return (await obtenerTodosLosProductos()).filter((p) => p.is_in_stock);
 }
 
-export async function obtenerProductosPorCategoria(categoriaId: number): Promise<Producto[]> {
+export async function obtenerProductoPorSlug(slug: string): Promise<Producto | null> {
   const todos = await obtenerTodosLosProductos();
-  return todos.filter((p) => p.categories.some((c) => c.id === categoriaId));
+  return todos.find((p) => p.slug === slug) ?? null;
+}
+
+/** Productos de una categoría para listarlos (portada/categoría): excluye los agotados. */
+export async function obtenerProductosPorCategoria(categoriaId: number): Promise<Producto[]> {
+  const enStock = await obtenerProductosEnStock();
+  return enStock.filter((p) => p.categories.some((c) => c.id === categoriaId));
 }
 
 export async function obtenerProductosRelacionados(producto: Producto, cantidad = 6): Promise<Producto[]> {
-  const todos = await obtenerTodosLosProductos();
+  const enStock = await obtenerProductosEnStock();
   const idsCategorias = new Set(producto.categories.map((c) => c.id));
-  return todos
+  return enStock
     .filter((p) => p.id !== producto.id && p.categories.some((c) => idsCategorias.has(c.id)))
     .slice(0, cantidad);
 }
