@@ -4,6 +4,13 @@ Avisa a GitHub Actions cuando cambia un producto en WooCommerce, agrupando los
 cambios: como mucho dispara una regeneración cada 10 minutos (más la
 regeneración diaria programada del workflow, por si algo se escapa).
 
+También apaga el sitemap nativo de WordPress (`/wp-sitemap.xml`), para que no
+compita con el que genera Astro (`/sitemap.xml`). Al activar el plugin no
+hace falta ningún otro paso para eso. Si en algún momento se instala un
+plugin de SEO (Yoast, Rank Math, All in One SEO...), su generador de sitemap
+también hay que apagarlo, desde los ajustes propios de ese plugin (suele
+estar en algo como "Ajustes generales > Sitemap XML").
+
 ## Instalar
 
 1. Subir la carpeta `ringopet-regenerar/` a `wp-content/plugins/` del servidor

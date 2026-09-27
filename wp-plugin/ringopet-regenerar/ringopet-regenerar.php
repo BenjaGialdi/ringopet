@@ -10,6 +10,12 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
+// El sitemap lo genera Astro (/sitemap.xml, con lastmod real e imágenes).
+// Esto apaga el sitemap nativo de WordPress (/wp-sitemap.xml) para que no compita.
+// Si en algún momento se instala un plugin de SEO (Yoast, RankMath, etc.), su
+// sitemap también hay que apagarlo desde los ajustes de ese plugin.
+add_filter('wp_sitemaps_enabled', '__return_false');
+
 define('RINGOPET_REGENERAR_INTERVALO', 10 * MINUTE_IN_SECONDS);
 define('RINGOPET_REGENERAR_HOOK', 'ringopet_disparar_regeneracion');
 
