@@ -20,12 +20,17 @@ function ringopet_marcar_pendiente(): void {
     }
 }
 
+// Edición del producto (título, precio, descripción, etc.).
 add_action('save_post_product', 'ringopet_marcar_pendiente');
 add_action('woocommerce_update_product', 'ringopet_marcar_pendiente');
 add_action('woocommerce_new_product', 'ringopet_marcar_pendiente');
+
+// Cambios de stock: por una venta, por carga manual o por cualquier plugin/integración
+// que ajuste el inventario (no solo al guardar el producto desde el editor).
 add_action('woocommerce_product_set_stock', 'ringopet_marcar_pendiente');
 add_action('woocommerce_variation_set_stock', 'ringopet_marcar_pendiente');
 add_action('woocommerce_product_set_stock_status', 'ringopet_marcar_pendiente');
+add_action('woocommerce_variation_set_stock_status', 'ringopet_marcar_pendiente');
 
 add_action('before_delete_post', function ($id): void {
     if (get_post_type($id) === 'product') {

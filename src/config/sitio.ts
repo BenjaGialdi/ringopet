@@ -17,6 +17,8 @@ export interface RedSocial {
 
 export interface Colores {
   primario: string;
+  /** Variante más oscura del primario, solo para texto/etiquetas: el naranja de marca no da 4.5:1 de contraste como texto (AA). Bordes, íconos y fondos grandes siguen usando "primario". */
+  primarioOscuro: string;
   sobrePrimario: string;
   acento: string;
   fondo: string;
@@ -26,7 +28,8 @@ export interface Colores {
   borde: string;
 }
 
-export type TipoSchema = 'LocalBusiness' | 'Organization';
+/** Tienda online sin local propio: siempre Organization (nunca LocalBusiness, que exige dirección). */
+export type TipoSchema = 'Organization';
 
 export interface Sitio {
   nombre: string;
@@ -44,17 +47,12 @@ export interface Sitio {
     telefono: string;
     telefonoEnlace: string;
     email: string;
-    direccion: {
-      calle: string;
-      localidad: string;
-      provincia: string;
-      codigoPostal: string;
-      pais: string;
-    };
-    coordenadas: { lat: number; lng: number };
     /** Turnos de entrega que se muestran en la portada, en texto libre (el detalle real lo define ORDDD en el checkout). */
     horarios: { etiqueta: string }[];
   };
+
+  /** Tienda online sin local ni dirección: zona que cubre el reparto propio, para el JSON-LD (areaServed). */
+  areaServed: string;
 
   whatsapp: {
     numero: string;
@@ -68,10 +66,7 @@ export interface Sitio {
 
   imagenCompartir: { archivo: string; alt: string };
 
-  schema: {
-    tipo: TipoSchema;
-    subtipo?: string;
-  };
+  schema: { tipo: TipoSchema };
 
   analitica: {
     googleAnalytics: string;
@@ -109,6 +104,7 @@ export const sitio: Sitio = {
   logo: { archivo: '/logo.webp', alt: 'RingoPet', ancho: 160, alto: 56 },
   colores: {
     primario: '#F95D00',
+    primarioOscuro: '#BA4500',
     sobrePrimario: '#ffffff',
     acento: '#1c1917',
     fondo: '#ffffff',
@@ -123,19 +119,13 @@ export const sitio: Sitio = {
     telefono: '351 637-1993',
     telefonoEnlace: '+543516371993',
     email: 'info@ringopet.com.ar',
-    direccion: {
-      calle: '?',
-      localidad: 'Córdoba',
-      provincia: 'Córdoba',
-      codigoPostal: '5000',
-      pais: 'AR',
-    },
-    coordenadas: { lat: -31.4201, lng: -64.1888 },
     horarios: [{ etiqueta: 'Entrega programada: elegís el día y el turno al finalizar tu compra' }],
   },
 
+  areaServed: 'Córdoba capital, Argentina',
+
   whatsapp: {
-    numero: '?',
+    numero: '5493516371993',
     mensaje: 'Hola, quería consultarte por un producto.',
     botonFlotante: true,
   },
@@ -149,7 +139,7 @@ export const sitio: Sitio = {
 
   imagenCompartir: { archivo: '/compartir.jpg', alt: 'RingoPet' },
 
-  schema: { tipo: 'LocalBusiness', subtipo: 'PetStore' },
+  schema: { tipo: 'Organization' },
 
   analitica: { googleAnalytics: '', searchConsole: '' },
 

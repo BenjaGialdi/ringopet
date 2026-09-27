@@ -11,12 +11,11 @@ export interface Miga {
 export const idNegocio = `${sitio.dominio}/#negocio`;
 export const idSitioWeb = `${sitio.dominio}/#sitio`;
 
-/** Organization o LocalBusiness (con subtipo opcional) según sitio.ts. */
+/** Tienda online sin local: Organization con areaServed, sin address ni geo (eso es para LocalBusiness). */
 export function nodoNegocio() {
   const { contacto, schema } = sitio;
-  const d = contacto.direccion;
-  const base = {
-    '@type': schema.subtipo ?? schema.tipo,
+  return {
+    '@type': schema.tipo,
     '@id': idNegocio,
     name: sitio.nombre,
     description: sitio.descripcion,
@@ -26,19 +25,7 @@ export function nodoNegocio() {
     telephone: contacto.telefonoEnlace,
     email: contacto.email,
     sameAs: sitio.redes.map((r) => r.url),
-    address: {
-      '@type': 'PostalAddress',
-      streetAddress: d.calle,
-      addressLocality: d.localidad,
-      addressRegion: d.provincia,
-      postalCode: d.codigoPostal,
-      addressCountry: d.pais,
-    },
-  };
-  if (schema.tipo === 'Organization') return base;
-  return {
-    ...base,
-    geo: { '@type': 'GeoCoordinates', latitude: contacto.coordenadas.lat, longitude: contacto.coordenadas.lng },
+    areaServed: sitio.areaServed,
   };
 }
 

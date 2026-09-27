@@ -24,7 +24,7 @@ const enlacesUtiles = [
           <ul class="mt-4 flex flex-wrap gap-4" aria-label="Redes sociales">
             {sitio.redes.map((r) => (
               <li>
-                <a href={r.url} rel="noopener" target="_blank" class="font-medium text-primario underline underline-offset-2">
+                <a href={r.url} rel="noopener" target="_blank" class="font-medium text-primario-oscuro underline underline-offset-2">
                   {r.nombre}
                 </a>
               </li>
@@ -69,7 +69,7 @@ const enlacesUtiles = [
         <p>
           <a href={`mailto:${sitio.contacto.email}`} class="hover:text-primario">{sitio.contacto.email}</a>
         </p>
-        <p>{sitio.contacto.direccion.localidad}, {sitio.contacto.direccion.provincia}</p>
+        <p>Reparto propio en {sitio.areaServed}</p>
       </address>
     </div>
   </div>
