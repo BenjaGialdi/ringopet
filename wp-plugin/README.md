@@ -11,6 +11,10 @@ plugin de SEO (Yoast, Rank Math, All in One SEO...), su generador de sitemap
 también hay que apagarlo, desde los ajustes propios de ese plugin (suele
 estar en algo como "Ajustes generales > Sitemap XML").
 
+También agrega `noindex` a `/driver/` y `/tracking/` (páginas del plugin de
+repartos, identificadas por slug): siguen funcionando para quien las usa,
+pero no se indexan ni entran al sitemap de Astro.
+
 ## Instalar
 
 1. Subir la carpeta `ringopet-regenerar/` a `wp-content/plugins/` del servidor

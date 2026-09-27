@@ -16,6 +16,15 @@ if (!defined('ABSPATH')) {
 // sitemap también hay que apagarlo desde los ajustes de ese plugin.
 add_filter('wp_sitemaps_enabled', '__return_false');
 
+// Páginas del plugin de repartos: siguen funcionando, pero no se indexan ni
+// van en el sitemap de Astro (se excluyen aparte, en src/lib/tienda/wordpress.ts).
+add_filter('wp_robots', function (array $robots): array {
+    if (is_page(['driver', 'tracking'])) {
+        $robots['noindex'] = true;
+    }
+    return $robots;
+});
+
 define('RINGOPET_REGENERAR_INTERVALO', 10 * MINUTE_IN_SECONDS);
 define('RINGOPET_REGENERAR_HOOK', 'ringopet_disparar_regeneracion');
 

@@ -32,11 +32,14 @@ export async function obtenerFechasDeProductos(): Promise<Map<number, string>> {
 
 /**
  * Páginas de WordPress publicadas para el sitemap, salvo el carrito, el
- * pago y "Mi cuenta" (esas llevan noindex propio de WooCommerce y no son
- * contenido). La portada ("/") no se incluye: la genera Astro.
+ * pago, "Mi cuenta" (llevan noindex propio de WooCommerce, no son
+ * contenido), driver/tracking del plugin de repartos (llevan su propio
+ * noindex, agregado desde ringopet-regenerar — ver wp-plugin/README.md) y
+ * "shop" (el archivo de WooCommerce, redirige 301 a la portada — ver
+ * README.md). La portada ("/") no se incluye: la genera Astro.
  */
 export async function obtenerPaginasIndexables(dominio: string): Promise<{ loc: string; lastmod: string }[]> {
-  const excluidas = new Set(['carrito', 'finalizar-compra', 'mi-cuenta']);
+  const excluidas = new Set(['carrito', 'finalizar-compra', 'mi-cuenta', 'driver', 'tracking', 'shop']);
   const paginas = await obtenerTodasLasPaginas<PaginaWp>('/pages', { _fields: 'link,modified_gmt,slug,status' }, BASE_WP);
   return paginas
     .filter((p) => p.status === 'publish' && !excluidas.has(p.slug) && new URL(p.link).pathname !== '/')
