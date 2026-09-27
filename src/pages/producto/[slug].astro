@@ -69,9 +69,10 @@ const mensajeWhatsapp = `Hola, quería consultar por "${producto.name}" (${produ
         {
           producto.images.length > 1 && (
             <div class="mt-3 flex gap-2 overflow-x-auto">
-              {producto.images.map((img) => (
+              {producto.images.map((img, i) => (
                 <button
                   type="button"
+                  aria-label={`Ver imagen ${i + 1} de ${producto.name}`}
                   data-miniatura={img.src}
                   data-srcset={img.srcset}
                   class="h-16 w-16 shrink-0 overflow-hidden rounded-lg border border-borde bg-fondo-suave transition-colors hover:border-primario"
