@@ -1,8 +1,8 @@
 <?php
 /**
  * Plugin Name: RingoPet Pedido
- * Description: Lectura de un pedido para la página "Gracias" de Astro (/pedido-recibido/). La Store API (wc/store/v1/order) no trae medio de pago, número de pedido ni fecha/turno de entrega: este endpoint sí. Además manda todas las vueltas de pago (incluida Mercado Pago) a /pedido-recibido/ en vez de la página de WordPress.
- * Version: 1.0.0
+ * Description: Lectura de un pedido para la página "Gracias" de Astro (/pedido-recibido/), medios de pago para /finalizar-compra/ y alta de cuenta para pedidos de invitado. La Store API (wc/store/v1/order) no trae medio de pago, número de pedido ni fecha/turno de entrega: este endpoint sí. Además manda todas las vueltas de pago (incluida Mercado Pago) a /pedido-recibido/ en vez de la página de WordPress.
+ * Version: 1.1.0
  * Author: Fluxa
  * Requires Plugins: woocommerce
  * Text Domain: ringopet-pedido
@@ -23,10 +23,60 @@ final class RingoPet_Pedido {
 		add_action( 'rest_api_init', array( __CLASS__, 'registrar_ruta' ) );
 		add_action( 'rest_api_init', array( __CLASS__, 'registrar_ruta_medios_pago' ) );
 		add_filter( 'woocommerce_get_checkout_order_received_url', array( __CLASS__, 'redirigir_a_gracias_astro' ), 20, 2 );
+
+		// Astro paga siempre como invitado (create_account: false, "pago como invitado" ya
+		// activado en Woo). Acá, después de crear el pedido, se asigna a una cuenta existente
+		// o se crea una nueva — nunca se inicia sesión ni se manda nada de la cuenta al navegador.
+		add_action( 'woocommerce_store_api_checkout_order_processed', array( __CLASS__, 'asignar_cuenta' ), 10 );
+
+		// El listado de medios de pago se cachea unos minutos (ver responder_medios_pago);
+		// se limpia solo si cambian los ajustes de pagos.
+		add_action( 'woocommerce_settings_saved', array( __CLASS__, 'limpiar_cache_medios_pago' ) );
 	}
 
 	/* ------------------------------------------------------------------ */
-	/* Medios de pago: el título que ya está en WooCommerce > Pagos        */
+	/* Alta de cuenta para pedidos de invitado                             */
+	/* ------------------------------------------------------------------ */
+
+	/**
+	 * @param WC_Order $pedido
+	 */
+	public static function asignar_cuenta( $pedido ) {
+		if ( ! $pedido instanceof WC_Order || $pedido->get_customer_id() ) {
+			return; // Ya tiene sesión (cliente logueado): se deja como está.
+		}
+
+		$email = $pedido->get_billing_email();
+		if ( ! is_email( $email ) ) {
+			return;
+		}
+
+		$usuario = get_user_by( 'email', $email );
+		if ( $usuario ) {
+			$pedido->set_customer_id( $usuario->ID );
+			$pedido->save();
+			return;
+		}
+
+		// Usuario y contraseña en blanco: WooCommerce genera los dos solos y manda el
+		// email de "elegí tu contraseña" (mismo flujo que el alta manual de Mi cuenta).
+		$id_nuevo = wc_create_new_customer(
+			$email,
+			'',
+			'',
+			array(
+				'first_name' => $pedido->get_billing_first_name(),
+				'last_name'  => $pedido->get_billing_last_name(),
+			)
+		);
+		if ( ! is_wp_error( $id_nuevo ) ) {
+			$pedido->set_customer_id( $id_nuevo );
+			$pedido->save();
+		}
+	}
+
+	/* ------------------------------------------------------------------ */
+	/* Medios de pago: título, descripción, ícono y privacidad de Woo       */
 	/* ------------------------------------------------------------------ */
 
 	public static function registrar_ruta_medios_pago() {
@@ -41,24 +91,49 @@ final class RingoPet_Pedido {
 		);
 	}
 
+	public static function limpiar_cache_medios_pago() {
+		delete_transient( 'ringopet_medios_pago' );
+	}
+
 	/**
-	 * Mismo título que ya ve cualquier visitante en el checkout clásico
-	 * (Ajustes > Pagos > cada medio > Título): es información pública, no
-	 * hace falta sesión para leerla.
+	 * Título, descripción e ícono tal cual están en WooCommerce > Ajustes > Pagos, más el
+	 * texto de privacidad del pago (wc_get_privacy_policy_text). Todo información pública,
+	 * ya visible en el checkout clásico sin sesión. Se cachea 5 minutos (nada de esto cambia
+	 * seguido) y se limpia solo si se guardan los ajustes de pagos.
 	 */
 	public static function responder_medios_pago() {
 		if ( ! headers_sent() ) {
 			nocache_headers();
 		}
+
+		$cache = get_transient( 'ringopet_medios_pago' );
+		if ( false !== $cache ) {
+			return rest_ensure_response( $cache );
+		}
+
 		// is_available() de algunos medios de pago mira el carrito (moneda, si necesita envío, etc.).
 		if ( function_exists( 'wc_load_cart' ) && null === WC()->cart ) {
 			wc_load_cart();
 		}
+
 		$medios = array();
 		foreach ( WC()->payment_gateways()->get_available_payment_gateways() as $id => $gateway ) {
-			$medios[ $id ] = $gateway->get_title();
+			$medios[ $id ] = array(
+				'titulo'      => $gateway->get_title(),
+				'descripcion' => $gateway->get_description(),
+				// "bacs" usa el ícono de banco propio de Astro (pedido así); el resto (Mercado
+				// Pago) trae su propio logo desde get_icon().
+				'icono'       => 'bacs' === $id ? '' : $gateway->get_icon(),
+			);
 		}
-		return rest_ensure_response( $medios );
+
+		$respuesta = array(
+			'medios'           => $medios,
+			'texto_privacidad' => function_exists( 'wc_get_privacy_policy_text' ) ? wc_get_privacy_policy_text( 'checkout' ) : '',
+		);
+
+		set_transient( 'ringopet_medios_pago', $respuesta, 5 * MINUTE_IN_SECONDS );
+		return rest_ensure_response( $respuesta );
 	}
 
 	/* ------------------------------------------------------------------ */
