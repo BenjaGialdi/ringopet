@@ -2,7 +2,7 @@
 /**
  * Plugin Name: RingoPet Pedido
  * Description: Lectura de un pedido para la página "Gracias" de Astro (/pedido-recibido/), medios de pago para /finalizar-compra/ y alta de cuenta para pedidos de invitado. La Store API (wc/store/v1/order) no trae medio de pago, número de pedido ni fecha/turno de entrega: este endpoint sí. Además manda todas las vueltas de pago (incluida Mercado Pago) a /pedido-recibido/ en vez de la página de WordPress.
- * Version: 1.3.1
+ * Version: 1.4.0
  * Author: Fluxa
  * Requires Plugins: woocommerce
  * Text Domain: ringopet-pedido
@@ -259,7 +259,63 @@ final class RingoPet_Pedido {
 			'transferencia'           => 'bacs' === $metodo ? self::cuenta_bancaria() : null,
 			'facturacion'             => self::direccion( $pedido, 'billing' ),
 			'envio_direccion'         => self::direccion( $pedido, 'shipping' ),
-		);
+		) + self::avance( $pedido );
+	}
+
+	/**
+	 * Línea de avance de 4 pasos ("Pedido recibido" → "Preparando" → "En camino" →
+	 * "Entregado"), leyendo los estados configurables del plugin de repartos (Local
+	 * Delivery Drivers) directo de sus opciones — nunca escritos a mano acá, salvo
+	 * "processing" y "completed" como valores por defecto de WooCommerce si esas
+	 * opciones no están configuradas.
+	 *
+	 * @return array{paso: int|null, aviso: string|null, texto: string|null}
+	 */
+	private static function avance( WC_Order $pedido ) {
+		$estado = $pedido->get_status(); // sin el prefijo "wc-".
+
+		$sin_prefijo = function ( $valor ) {
+			$valor = (string) $valor;
+			return 0 === strpos( $valor, 'wc-' ) ? substr( $valor, 3 ) : $valor;
+		};
+
+		$procesando      = $sin_prefijo( get_option( 'lddfw_processing_status' ) );
+		$asignado        = $sin_prefijo( get_option( 'lddfw_driver_assigned_status' ) );
+		$en_camino       = $sin_prefijo( get_option( 'lddfw_out_for_delivery_status' ) );
+		$entregado       = $sin_prefijo( get_option( 'lddfw_delivered_status' ) ) ?: 'completed';
+		$intento_fallido = $sin_prefijo( get_option( 'lddfw_failed_attempt_status' ) );
+
+		if ( in_array( $estado, array( 'cancelled', 'refunded', 'failed' ), true ) ) {
+			return array( 'paso' => null, 'aviso' => wc_get_order_status_name( $pedido->get_status() ), 'texto' => null );
+		}
+
+		if ( $intento_fallido && $estado === $intento_fallido ) {
+			return array( 'paso' => null, 'aviso' => 'No pudimos entregar tu pedido, te vamos a contactar.', 'texto' => null );
+		}
+
+		if ( in_array( $estado, array( 'pending', 'on-hold' ), true ) ) {
+			return array(
+				'paso'  => 1,
+				'aviso' => null,
+				'texto' => 'bacs' === $pedido->get_payment_method() ? 'Esperando confirmación del pago' : null,
+			);
+		}
+
+		if ( $estado === $entregado ) {
+			return array( 'paso' => 4, 'aviso' => null, 'texto' => null );
+		}
+
+		if ( $en_camino && $estado === $en_camino ) {
+			return array( 'paso' => 3, 'aviso' => null, 'texto' => null );
+		}
+
+		if ( ( $procesando && $estado === $procesando ) || ( $asignado && $estado === $asignado ) || 'processing' === $estado ) {
+			return array( 'paso' => 2, 'aviso' => null, 'texto' => null );
+		}
+
+		// Estado sin mapear (por ejemplo uno agregado por otro plugin): sin línea de
+		// avance, con el nombre del estado tal cual lo conoce WooCommerce.
+		return array( 'paso' => null, 'aviso' => wc_get_order_status_name( $pedido->get_status() ), 'texto' => null );
 	}
 
 	private static function fecha_iso( $fecha ) {

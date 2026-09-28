@@ -2,7 +2,7 @@
 /**
  * Plugin Name: RingoPet Cuenta
  * Description: "Mi cuenta" para Astro (/mi-cuenta/...): sesión, pedidos, direcciones, datos y recuperación de contraseña, todo con las cookies nativas de WordPress. Independiente de ringopet-pedido y ringopet-entrega (se puede desactivar sin afectarlos).
- * Version: 1.0.1
+ * Version: 1.1.0
  * Author: Fluxa
  * Requires Plugins: woocommerce
  * Text Domain: ringopet-cuenta
@@ -191,10 +191,34 @@ final class RingoPet_Cuenta {
 		wp_set_current_user( $id_usuario );
 		$usuario = wp_get_current_user();
 		return rest_ensure_response( array(
-			'sesion' => true,
-			'nombre' => $usuario->first_name ? $usuario->first_name : $usuario->display_name,
-			'nonce'  => wp_create_nonce( 'wp_rest' ),
+			'sesion'  => true,
+			'nombre'  => $usuario->first_name ? $usuario->first_name : $usuario->display_name,
+			'nonce'   => wp_create_nonce( 'wp_rest' ),
+			// El resumen (últimos 5 pedidos) va acá adentro para que /mi-cuenta/ resuelva
+			// todo con una sola consulta, en vez de sesion + pedidos por separado.
+			'resumen' => array( 'pedidos' => self::ultimos_pedidos( $id_usuario, 5 ) ),
 		) );
+	}
+
+	private static function ultimos_pedidos( $id_usuario, $cantidad ) {
+		$pedidos = wc_get_orders( array(
+			'customer_id' => $id_usuario,
+			'limit'       => $cantidad,
+			'orderby'     => 'date',
+			'order'       => 'DESC',
+		) );
+		return array_map( array( __CLASS__, 'resumen_pedido' ), $pedidos );
+	}
+
+	private static function resumen_pedido( WC_Order $pedido ) {
+		return array(
+			'id'           => $pedido->get_id(),
+			'numero'       => $pedido->get_order_number(),
+			'fecha'        => $pedido->get_date_created() ? $pedido->get_date_created()->date( 'c' ) : null,
+			'estado'       => $pedido->get_status(),
+			'estado_label' => wc_get_order_status_name( $pedido->get_status() ),
+			'total'        => number_format( (float) $pedido->get_total(), 2, '.', '' ),
+		) + self::avance( $pedido );
 	}
 
 	/* ------------------------------------------------------------------ */
@@ -301,18 +325,7 @@ final class RingoPet_Cuenta {
 			'order'       => 'DESC',
 		) );
 
-		$pedidos = array();
-		foreach ( $resultado->orders as $pedido ) {
-			/** @var WC_Order $pedido */
-			$pedidos[] = array(
-				'id'           => $pedido->get_id(),
-				'numero'       => $pedido->get_order_number(),
-				'fecha'        => $pedido->get_date_created() ? $pedido->get_date_created()->date( 'c' ) : null,
-				'estado'       => $pedido->get_status(),
-				'estado_label' => wc_get_order_status_name( $pedido->get_status() ),
-				'total'        => number_format( (float) $pedido->get_total(), 2, '.', '' ),
-			);
-		}
+		$pedidos = array_map( array( __CLASS__, 'resumen_pedido' ), $resultado->orders );
 
 		return rest_ensure_response( array(
 			'pedidos'      => $pedidos,
@@ -383,7 +396,59 @@ final class RingoPet_Cuenta {
 				'turno'          => $turno_entrega,
 			),
 			'transferencia'      => 'bacs' === $metodo ? self::cuenta_bancaria() : null,
-		);
+		) + self::avance( $pedido );
+	}
+
+	/**
+	 * Línea de avance de 4 pasos, mismo criterio que ringopet-pedido::avance() (duplicado
+	 * a propósito, ver la nota de formatear_pedido()): lee los estados configurables del
+	 * plugin de repartos (Local Delivery Drivers) directo de sus opciones.
+	 *
+	 * @return array{paso: int|null, aviso: string|null, texto: string|null}
+	 */
+	private static function avance( WC_Order $pedido ) {
+		$estado = $pedido->get_status();
+
+		$sin_prefijo = function ( $valor ) {
+			$valor = (string) $valor;
+			return 0 === strpos( $valor, 'wc-' ) ? substr( $valor, 3 ) : $valor;
+		};
+
+		$procesando      = $sin_prefijo( get_option( 'lddfw_processing_status' ) );
+		$asignado        = $sin_prefijo( get_option( 'lddfw_driver_assigned_status' ) );
+		$en_camino       = $sin_prefijo( get_option( 'lddfw_out_for_delivery_status' ) );
+		$entregado       = $sin_prefijo( get_option( 'lddfw_delivered_status' ) ) ?: 'completed';
+		$intento_fallido = $sin_prefijo( get_option( 'lddfw_failed_attempt_status' ) );
+
+		if ( in_array( $estado, array( 'cancelled', 'refunded', 'failed' ), true ) ) {
+			return array( 'paso' => null, 'aviso' => wc_get_order_status_name( $pedido->get_status() ), 'texto' => null );
+		}
+
+		if ( $intento_fallido && $estado === $intento_fallido ) {
+			return array( 'paso' => null, 'aviso' => 'No pudimos entregar tu pedido, te vamos a contactar.', 'texto' => null );
+		}
+
+		if ( in_array( $estado, array( 'pending', 'on-hold' ), true ) ) {
+			return array(
+				'paso'  => 1,
+				'aviso' => null,
+				'texto' => 'bacs' === $pedido->get_payment_method() ? 'Esperando confirmación del pago' : null,
+			);
+		}
+
+		if ( $estado === $entregado ) {
+			return array( 'paso' => 4, 'aviso' => null, 'texto' => null );
+		}
+
+		if ( $en_camino && $estado === $en_camino ) {
+			return array( 'paso' => 3, 'aviso' => null, 'texto' => null );
+		}
+
+		if ( ( $procesando && $estado === $procesando ) || ( $asignado && $estado === $asignado ) || 'processing' === $estado ) {
+			return array( 'paso' => 2, 'aviso' => null, 'texto' => null );
+		}
+
+		return array( 'paso' => null, 'aviso' => wc_get_order_status_name( $pedido->get_status() ), 'texto' => null );
 	}
 
 	private static function cuenta_bancaria() {
@@ -470,9 +535,26 @@ final class RingoPet_Cuenta {
 	public static function obtener_datos() {
 		self::sin_cache();
 		$usuario = wp_get_current_user();
+
+		$nombre   = $usuario->first_name;
+		$apellido = $usuario->last_name;
+
+		// Si la cuenta nunca guardó nombre/apellido propios (por ejemplo una cuenta creada
+		// sola desde un pago, ver "Cuenta para pedidos de invitado"), se completa con los
+		// de facturación del cliente de WooCommerce. Si tampoco hay, queda vacío.
+		if ( '' === $nombre || '' === $apellido ) {
+			$cliente = new WC_Customer( $usuario->ID );
+			if ( '' === $nombre ) {
+				$nombre = $cliente->get_billing_first_name();
+			}
+			if ( '' === $apellido ) {
+				$apellido = $cliente->get_billing_last_name();
+			}
+		}
+
 		return rest_ensure_response( array(
-			'first_name' => $usuario->first_name,
-			'last_name'  => $usuario->last_name,
+			'first_name' => $nombre,
+			'last_name'  => $apellido,
 			'email'      => $usuario->user_email,
 		) );
 	}
