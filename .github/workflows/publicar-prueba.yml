@@ -1,0 +1,138 @@
+name: Publicar en prueba
+
+# Corre con push a main y a mano. Genera el sitio contra prueba.ringopet.com.ar
+# y sube dist/ + cada carpeta de wp-plugin/ por FTP a la cuenta de prueba (su
+# raíz ya es public_html/prueba, donde vive ese WordPress — no hace falta
+# ninguna subcarpeta). Nunca borra nada que ella misma no haya subido antes
+# (dangerous-clean-slate: false) y frena antes de subir si no encuentra
+# wp-config.php en la raíz de esa cuenta FTP.
+#
+# Un plugin nuevo (una carpeta que no exista todavía en wp-content/plugins/)
+# se sube igual, pero hay que activarlo una vez a mano desde wp-admin > Plugins.
+#
+# Secretos necesarios (Settings > Secrets and variables > Actions > Secrets):
+#   FTP_PRUEBA_SERVIDOR, FTP_PRUEBA_USUARIO, FTP_PRUEBA_CLAVE
+# Opcional, para purgar la caché de LiteSpeed después de publicar (ver wp-plugin/README.md):
+#   RINGOPET_PURGE_TOKEN
+#
+# repository_dispatch y schedule se mantienen del workflow viejo (que este
+# reemplaza): son los que usa wp-plugin/ringopet-regenerar/ para avisar
+# cuando cambia un producto, y el respaldo diario por si algo se escapa.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+  repository_dispatch:
+    types: [regenerar]
+  schedule:
+    - cron: '0 9 * * *'
+
+concurrency:
+  group: publicar-prueba
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  WOO_URL: https://prueba.ringopet.com.ar
+
+jobs:
+  publicar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Revisar tipos y contenido
+        run: npx astro check
+
+      - name: Generar el sitio (lee el catálogo de WOO_URL)
+        run: npm run build
+
+      - name: Verificar que la raíz de la cuenta FTP tenga WordPress
+        run: |
+          curl --ftp-ssl -sS -f \
+            -u "${{ secrets.FTP_PRUEBA_USUARIO }}:${{ secrets.FTP_PRUEBA_CLAVE }}" \
+            "ftp://${{ secrets.FTP_PRUEBA_SERVIDOR }}/wp-config.php" -o /dev/null \
+            || { echo "::error::No se encontró wp-config.php en la raíz de la cuenta FTP de prueba. No se sube nada."; exit 1; }
+
+      - name: Subir dist/
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_PRUEBA_SERVIDOR }}
+          username: ${{ secrets.FTP_PRUEBA_USUARIO }}
+          password: ${{ secrets.FTP_PRUEBA_CLAVE }}
+          protocol: ftps
+          local-dir: ./dist/
+          server-dir: ./
+          state-name: .ftp-deploy-sync-state-dist.json
+          dangerous-clean-slate: false
+          exclude: |
+            **/.htaccess
+            **/wp-config.php
+            **/wp-admin/**
+            **/wp-includes/**
+            **/wp-content/**
+
+      - name: Subir wp-plugin/ringopet-entrega
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_PRUEBA_SERVIDOR }}
+          username: ${{ secrets.FTP_PRUEBA_USUARIO }}
+          password: ${{ secrets.FTP_PRUEBA_CLAVE }}
+          protocol: ftps
+          local-dir: ./wp-plugin/ringopet-entrega/
+          server-dir: ./wp-content/plugins/ringopet-entrega/
+          state-name: .ftp-deploy-sync-state-ringopet-entrega.json
+          dangerous-clean-slate: false
+
+      - name: Subir wp-plugin/ringopet-pedido
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_PRUEBA_SERVIDOR }}
+          username: ${{ secrets.FTP_PRUEBA_USUARIO }}
+          password: ${{ secrets.FTP_PRUEBA_CLAVE }}
+          protocol: ftps
+          local-dir: ./wp-plugin/ringopet-pedido/
+          server-dir: ./wp-content/plugins/ringopet-pedido/
+          state-name: .ftp-deploy-sync-state-ringopet-pedido.json
+          dangerous-clean-slate: false
+
+      - name: Subir wp-plugin/ringopet-cuenta
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_PRUEBA_SERVIDOR }}
+          username: ${{ secrets.FTP_PRUEBA_USUARIO }}
+          password: ${{ secrets.FTP_PRUEBA_CLAVE }}
+          protocol: ftps
+          local-dir: ./wp-plugin/ringopet-cuenta/
+          server-dir: ./wp-content/plugins/ringopet-cuenta/
+          state-name: .ftp-deploy-sync-state-ringopet-cuenta.json
+          dangerous-clean-slate: false
+
+      - name: Subir wp-plugin/ringopet-regenerar
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_PRUEBA_SERVIDOR }}
+          username: ${{ secrets.FTP_PRUEBA_USUARIO }}
+          password: ${{ secrets.FTP_PRUEBA_CLAVE }}
+          protocol: ftps
+          local-dir: ./wp-plugin/ringopet-regenerar/
+          server-dir: ./wp-content/plugins/ringopet-regenerar/
+          state-name: .ftp-deploy-sync-state-ringopet-regenerar.json
+          dangerous-clean-slate: false
+
+      - name: Purgar caché de LiteSpeed
+        continue-on-error: true
+        run: |
+          curl -sS -X POST "https://prueba.ringopet.com.ar/wp-json/ringopet/v1/purgar-cache" \
+            -H "Authorization: Bearer ${{ secrets.RINGOPET_PURGE_TOKEN }}"

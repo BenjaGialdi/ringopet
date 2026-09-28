@@ -1,8 +1,8 @@
 <?php
 /**
  * Plugin Name: RingoPet - Regenerar sitio Astro
- * Description: Avisa a GitHub Actions cuando cambia un producto de WooCommerce (alta, edición, borrado o cambio de stock), agrupando los avisos: como mucho dispara una regeneración cada 10 minutos.
- * Version: 1.0.0
+ * Description: Avisa a GitHub Actions cuando cambia un producto de WooCommerce (alta, edición, borrado o cambio de stock), agrupando los avisos: como mucho dispara una regeneración cada 10 minutos. También expone un endpoint para que el workflow de publicación purgue la caché de LiteSpeed después de subir el build nuevo.
+ * Version: 1.1.0
  * Author: Fluxa
  */
 
@@ -91,3 +91,42 @@ register_deactivation_hook(__FILE__, function (): void {
         wp_unschedule_event($marca, RINGOPET_REGENERAR_HOOK);
     }
 });
+
+/**
+ * POST /wp-json/ringopet/v1/purgar-cache
+ * Lo llama el workflow de publicación después de subir el build nuevo, para que LiteSpeed
+ * no siga sirviendo páginas viejas desde su caché. Protegido por un token fijo (no por
+ * sesión: lo llama GitHub Actions, no un navegador) definido en wp-config.php:
+ *
+ *   define('RINGOPET_PURGE_TOKEN', 'un-token-largo-y-al-azar');
+ *
+ * El mismo valor va como secreto de GitHub (RINGOPET_PURGE_TOKEN en el repo, o
+ * RINGOPET_PURGE_TOKEN_REAL para el workflow del sitio real, que usa su propio
+ * wp-config.php con su propio valor de esta constante).
+ */
+add_action('rest_api_init', function (): void {
+    register_rest_route('ringopet/v1', '/purgar-cache', [
+        'methods' => 'POST',
+        'permission_callback' => '__return_true',
+        'callback' => 'ringopet_purgar_cache_endpoint',
+    ]);
+});
+
+function ringopet_purgar_cache_endpoint(WP_REST_Request $peticion) {
+    if (!defined('RINGOPET_PURGE_TOKEN') || '' === RINGOPET_PURGE_TOKEN) {
+        return new WP_Error('ringopet_purga_no_configurada', 'Falta definir RINGOPET_PURGE_TOKEN en wp-config.php.', ['status' => 501]);
+    }
+
+    $autorizacion = (string) $peticion->get_header('authorization');
+    $token = trim(str_ireplace('Bearer', '', $autorizacion));
+
+    if (!hash_equals(RINGOPET_PURGE_TOKEN, $token)) {
+        return new WP_Error('ringopet_purga_no_autorizada', 'Token inválido.', ['status' => 403]);
+    }
+
+    if (has_action('litespeed_purge_all')) {
+        do_action('litespeed_purge_all');
+    }
+
+    return rest_ensure_response(['ok' => true]);
+}

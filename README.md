@@ -75,103 +75,98 @@ Después de agregarlo, probar que `https://prueba.ringopet.com.ar/` carga la
 portada de Astro y que `https://prueba.ringopet.com.ar/wp-admin/` sigue
 entrando a WordPress.
 
-## Probar en `prueba.ringopet.com.ar` (subida manual, sin GitHub Actions)
+## Publicación automática en `prueba.ringopet.com.ar`
 
-Todavía no están cargados los secretos de GitHub Actions, así que por ahora
-se sube `dist/` a mano. Nunca reemplazar toda la carpeta ni usar una opción
-de "sincronizar y borrar": solo sumar/sobrescribir los archivos de `dist/`.
+Cada push a `main` (o a mano, desde la pestaña Actions) dispara el workflow
+**"Publicar en prueba"** (`.github/workflows/publicar-prueba.yml`), que:
 
-1. **Generar el build** apuntando a la prueba (ya es el `.env` actual):
-   ```bash
-   npm run build
+1. Instala, revisa tipos (`astro check`) y genera el sitio con
+   `WOO_URL=https://prueba.ringopet.com.ar` (fijo en el workflow, no una
+   variable de repo).
+2. Verifica por FTP que exista `wp-config.php` en la raíz de la cuenta FTP
+   de prueba — si no lo encuentra, frena ahí mismo con error y no sube nada
+   (protección contra apuntar por error a una cuenta FTP vacía o mal
+   configurada).
+3. Sube `dist/` a la raíz de esa cuenta FTP (que ya es directamente la
+   carpeta de WordPress de prueba: no hace falta ninguna subcarpeta).
+4. Sube cada carpeta de `wp-plugin/` a `wp-content/plugins/<carpeta>/` de esa
+   misma cuenta, cada una con su propio archivo de estado — así una
+   carpeta de plugin no pisa el estado de sincronización de otra.
+5. Intenta purgar la caché de LiteSpeed (ver "Purgar la caché" más abajo);
+   si falla, no hace fallar el resto del workflow.
+
+Ningún paso borra algo que él mismo no haya subido antes
+(`dangerous-clean-slate: false`, un archivo de estado por carpeta): el
+WordPress de prueba (`wp-admin/`, `wp-content/`, `wp-config.php`,
+`.htaccess`) nunca se toca, ni aunque cambie todo el catálogo de productos
+de una corrida a otra (ver "Por qué no borra archivos de WordPress" más
+abajo).
+
+**Un plugin nuevo** (una carpeta de `wp-plugin/` que todavía no exista en el
+servidor) se sube igual que el resto, pero **hay que activarlo una vez a
+mano** desde `wp-admin > Plugins` — el workflow no activa plugins, solo
+sube archivos.
+
+**Secretos necesarios** (Settings > Secrets and variables > Actions >
+Secrets): `FTP_PRUEBA_SERVIDOR`, `FTP_PRUEBA_USUARIO`, `FTP_PRUEBA_CLAVE`
+(ya cargados). Opcional: `RINGOPET_PURGE_TOKEN` (ver abajo).
+
+### Purgar la caché de LiteSpeed
+
+Si algo no se ve actualizado después de publicar, puede ser la caché de
+LiteSpeed (independiente de la de Astro/WordPress). El workflow puede
+purgarla solo, llamando a un endpoint nuevo de `ringopet-regenerar`
+(`POST /wp-json/ringopet/v1/purgar-cache`), protegido por un token fijo
+(no por sesión: lo llama GitHub Actions).
+
+Para activarlo:
+
+1. En `wp-config.php` del servidor de prueba (fuera del repositorio),
+   agregar, antes de `/* ¡Eso es todo, deja de editar! */`:
+   ```php
+   define('RINGOPET_PURGE_TOKEN', 'un-token-largo-y-al-azar');
    ```
-2. **Ubicar la carpeta raíz** de `prueba.ringopet.com.ar` en Hostinger:
-   hPanel > **Dominios > Subdominios**, columna "Ruta del documento" (algo
-   como `public_html/prueba` o `domains/prueba.ringopet.com.ar/public_html`,
-   según cómo esté armado el hosting). Esa carpeta es donde ya vive el
-   WordPress de prueba (`wp-admin`, `wp-content`, etc.) — se sube ahí adentro,
-   nunca en una subcarpeta nueva.
-3. **Subir el contenido de `dist/`** (el contenido, no la carpeta `dist`
-   en sí) a esa raíz, por una de estas dos vías:
-   - **Administrador de archivos** (hPanel > Archivos > Administrador de
-     archivos): comprimir en la compu todo lo que está DENTRO de `dist/` en
-     un `.zip`, subir ese `.zip` a la raíz de la prueba con "Subir", click
-     derecho > "Extraer" y confirmar que sobrescriba si pregunta. Borrar el
-     `.zip` después de extraer.
-   - **FTP** (FileZilla u otro cliente, con la cuenta de hPanel > Archivos >
-     Cuentas FTP): conectarse, entrar a la raíz de la prueba y arrastrar el
-     contenido de `dist/` ahí, sobrescribiendo lo que ya exista.
-4. **Agregar el `DirectoryIndex`** al `.htaccess` de la prueba si todavía no
-   está (ver sección de arriba) — sin esto, `prueba.ringopet.com.ar/` va a
-   seguir mostrando WordPress en vez de la portada de Astro.
-5. **Probar**, en este orden:
-   - Portada, una categoría y un producto de Astro cargan bien.
-   - Agregar productos al carrito (panel lateral) y en `/carrito/`: cantidades,
-     quitar, cupón.
-   - `/finalizar-compra/` (de Astro): se completan los datos, aparecen los
-     días y turnos de entrega reales, y el pedido mínimo de $30.000 se
-     respeta (si el carrito no llega, el botón de pagar queda desactivado
-     con el aviso).
-   - Completar el pago con **transferencia**: redirige a
-     `/pedido-recibido/` con los datos del pedido y el CVU/Alias.
-   - Completar el pago con **Mercado Pago**: redirige a Mercado Pago y,
-     después de pagar, vuelve a `/pedido-recibido/` (no a una página de
-     WordPress).
-   - El pedido aparece en el admin de WordPress con fecha y turno de
-     entrega, y en el plugin de repartos.
-   - **Mi cuenta** (sigue en WordPress) muestra el pedido.
-   - `/wp-admin/` y el resto de WordPress siguen funcionando igual que antes.
-   - `/finalizar-compra/order-pay/<id>/` (pagar un pedido pendiente) sigue
-     yendo a WordPress, no a la página de Astro.
-6. Si algo no anda, revisar antes que nada el `.htaccess` (paso 4) y que la
-   carpeta subida sea la raíz correcta del subdominio (paso 2).
+   (por ejemplo, generado con `openssl rand -hex 32`).
+2. Cargar ese mismo valor como secreto de GitHub: `RINGOPET_PURGE_TOKEN`.
 
-## Publicación automática (GitHub Actions) — cuando se carguen los secretos
-
-1. Repositorio privado en GitHub.
-2. **Secretos** (Settings > Secrets and variables > Actions > Secrets):
-
-   | Nombre | Valor |
-   |---|---|
-   | `FTP_SERVIDOR` | Servidor FTP de Hostinger |
-   | `FTP_USUARIO` | Usuario FTP |
-   | `FTP_CLAVE` | Contraseña de esa cuenta FTP |
-
-3. **Variable** (Settings > Secrets and variables > Actions > Variables):
-
-   | Nombre | Valor |
-   |---|---|
-   | `WOO_URL` | `https://ringopet.com.ar` (sin barra final) |
-
-4. Push a `main`: el workflow instala, revisa tipos, genera el sitio (leyendo
-   el catálogo de `WOO_URL`) y sube `dist/` por FTP a `public_html`.
-5. El workflow también se puede disparar a mano, por `repository_dispatch`
-   (lo usa el plugin de WordPress, ver `wp-plugin/README.md`) o corre solo
-   todos los días a las 09:00 UTC.
+Sin este secreto cargado, el paso de purgar cae en un error silencioso
+(`continue-on-error: true`) y el resto de la publicación sigue igual —no es
+obligatorio para que la publicación funcione, solo evita tener que purgar a
+mano.
 
 ### Por qué no borra archivos de WordPress al publicar
 
-La acción de FTP (`dangerous-clean-slate: false`, ya configurado) guarda en
-el propio servidor un archivo de estado
-(`.ftp-deploy-sync-state.json`) con lo que ELLA subió en la corrida
-anterior. En cada corrida compara `dist/` contra ese estado: sube lo nuevo o
-cambiado, y borra del servidor solo los archivos que **ella misma** había
-subido antes y que ahora ya no están en `dist/` (por ejemplo, si algún día
-se borra una página). Nunca toca archivos que no están en ese estado, así
-que WordPress (`wp-admin/`, `wp-content/`, etc.) no se ve afectado aunque
-cambie todo el catálogo de productos de un build a otro.
+Cada acción de FTP (`dangerous-clean-slate: false`) guarda en el propio
+servidor su propio archivo de estado (`.ftp-deploy-sync-state-*.json`) con
+lo que ELLA subió en la corrida anterior. En cada corrida compara la
+carpeta local contra ese estado: sube lo nuevo o cambiado, y borra del
+servidor solo los archivos que **ella misma** había subido antes y que
+ahora ya no están (por ejemplo, si algún día se borra una página o un
+plugin deja de estar en el repositorio). Nunca toca archivos que no están
+en su propio estado.
 
 Como las páginas de producto se generan siempre (incluidas las de "sin
 stock", ver `CLAUDE.md`), en la práctica una página de producto solo
 desaparece del servidor si el producto se borra de verdad en WooCommerce
 (no si se queda sin stock).
 
-## Antes de publicar en el sitio real
+## Publicar en el sitio real (lanzamiento)
 
-Ver la sección "Pendiente / a confirmar con Benja" de `CLAUDE.md`: subir
-esta vuelta a `prueba.ringopet.com.ar` y probar la compra completa
-(transferencia y Mercado Pago) siguiendo los pasos de arriba, borrar los
-pedidos de prueba (#14992, #14994, revisar #14993), confirmar CVU/Alias en
-`ringopet-pedido`, agregar el `DirectoryIndex` y la redirección de
-`/shop/` al `.htaccess` real, y revisar el peso de las imágenes de algunos
-productos (ver Lighthouse en `CLAUDE.md`).
+Workflow gemelo **"Publicar en el sitio real"**
+(`.github/workflows/publicar-real.yml`), preparado pero **desactivado**: su
+único disparador es `workflow_dispatch` (a mano, desde la pestaña Actions),
+nunca push ni cron. No tocar el `on:` de ese archivo hasta el día del
+lanzamiento.
+
+Usa sus propios secretos, para no mezclar credenciales con la cuenta de
+prueba: `FTP_REAL_SERVIDOR`, `FTP_REAL_USUARIO`, `FTP_REAL_CLAVE` (y,
+opcional, `RINGOPET_PURGE_TOKEN_REAL` con su propia constante en el
+`wp-config.php` del sitio real). Sube a `public_html/` — confirmar que sea
+la raíz correcta de esa cuenta FTP antes de la primera corrida (puede
+diferir de cómo está armada la de prueba).
+
+Antes de activarlo, ver la sección "Pendiente / a confirmar con Benja" de
+`CLAUDE.md`: agregar el `DirectoryIndex` y la redirección de `/shop/` al
+`.htaccess` real, confirmar CVU/Alias en `ringopet-pedido`, y probar la
+compra completa (transferencia y Mercado Pago) en prueba antes del
+lanzamiento.

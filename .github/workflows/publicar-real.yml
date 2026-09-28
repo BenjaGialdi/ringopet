@@ -1,0 +1,127 @@
+name: Publicar en el sitio real
+
+# Preparado para el lanzamiento, DESACTIVADO por ahora: el único disparador es
+# workflow_dispatch (a mano, desde la pestaña Actions), nunca push ni cron. No
+# tocar el "on:" de acá hasta el día del lanzamiento.
+#
+# Mismos pasos que "Publicar en prueba" pero contra ringopet.com.ar, con sus
+# propios secretos (para no mezclar credenciales con la cuenta de prueba) y
+# subiendo dist/ a public_html/ (ajustar server-dir si la cuenta FTP real
+# tiene otra raíz — confirmarlo antes de la primera corrida).
+#
+# Secretos necesarios (Settings > Secrets and variables > Actions > Secrets):
+#   FTP_REAL_SERVIDOR, FTP_REAL_USUARIO, FTP_REAL_CLAVE
+# Opcional, para purgar la caché de LiteSpeed después de publicar (ver wp-plugin/README.md):
+#   RINGOPET_PURGE_TOKEN_REAL
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: publicar-real
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  WOO_URL: https://ringopet.com.ar
+
+jobs:
+  publicar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Revisar tipos y contenido
+        run: npx astro check
+
+      - name: Generar el sitio (lee el catálogo de WOO_URL)
+        run: npm run build
+
+      - name: Verificar que la raíz de la cuenta FTP tenga WordPress
+        run: |
+          curl --ftp-ssl -sS -f \
+            -u "${{ secrets.FTP_REAL_USUARIO }}:${{ secrets.FTP_REAL_CLAVE }}" \
+            "ftp://${{ secrets.FTP_REAL_SERVIDOR }}/public_html/wp-config.php" -o /dev/null \
+            || { echo "::error::No se encontró wp-config.php en public_html/ de la cuenta FTP real. No se sube nada."; exit 1; }
+
+      - name: Subir dist/
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_REAL_SERVIDOR }}
+          username: ${{ secrets.FTP_REAL_USUARIO }}
+          password: ${{ secrets.FTP_REAL_CLAVE }}
+          protocol: ftps
+          local-dir: ./dist/
+          server-dir: public_html/
+          state-name: .ftp-deploy-sync-state-dist.json
+          dangerous-clean-slate: false
+          exclude: |
+            **/.htaccess
+            **/wp-config.php
+            **/wp-admin/**
+            **/wp-includes/**
+            **/wp-content/**
+
+      - name: Subir wp-plugin/ringopet-entrega
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_REAL_SERVIDOR }}
+          username: ${{ secrets.FTP_REAL_USUARIO }}
+          password: ${{ secrets.FTP_REAL_CLAVE }}
+          protocol: ftps
+          local-dir: ./wp-plugin/ringopet-entrega/
+          server-dir: public_html/wp-content/plugins/ringopet-entrega/
+          state-name: .ftp-deploy-sync-state-ringopet-entrega.json
+          dangerous-clean-slate: false
+
+      - name: Subir wp-plugin/ringopet-pedido
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_REAL_SERVIDOR }}
+          username: ${{ secrets.FTP_REAL_USUARIO }}
+          password: ${{ secrets.FTP_REAL_CLAVE }}
+          protocol: ftps
+          local-dir: ./wp-plugin/ringopet-pedido/
+          server-dir: public_html/wp-content/plugins/ringopet-pedido/
+          state-name: .ftp-deploy-sync-state-ringopet-pedido.json
+          dangerous-clean-slate: false
+
+      - name: Subir wp-plugin/ringopet-cuenta
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_REAL_SERVIDOR }}
+          username: ${{ secrets.FTP_REAL_USUARIO }}
+          password: ${{ secrets.FTP_REAL_CLAVE }}
+          protocol: ftps
+          local-dir: ./wp-plugin/ringopet-cuenta/
+          server-dir: public_html/wp-content/plugins/ringopet-cuenta/
+          state-name: .ftp-deploy-sync-state-ringopet-cuenta.json
+          dangerous-clean-slate: false
+
+      - name: Subir wp-plugin/ringopet-regenerar
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_REAL_SERVIDOR }}
+          username: ${{ secrets.FTP_REAL_USUARIO }}
+          password: ${{ secrets.FTP_REAL_CLAVE }}
+          protocol: ftps
+          local-dir: ./wp-plugin/ringopet-regenerar/
+          server-dir: public_html/wp-content/plugins/ringopet-regenerar/
+          state-name: .ftp-deploy-sync-state-ringopet-regenerar.json
+          dangerous-clean-slate: false
+
+      - name: Purgar caché de LiteSpeed
+        continue-on-error: true
+        run: |
+          curl -sS -X POST "https://ringopet.com.ar/wp-json/ringopet/v1/purgar-cache" \
+            -H "Authorization: Bearer ${{ secrets.RINGOPET_PURGE_TOKEN_REAL }}"

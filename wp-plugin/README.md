@@ -1,15 +1,20 @@
 # Plugins de WordPress
 
-Tres carpetas, cada una un plugin. Instalar todas: subir la carpeta a
-`wp-content/plugins/` del servidor (FTP o el instalador de WordPress,
-comprimida en `.zip`) y activarla desde **Plugins**.
+Cuatro carpetas, cada una un plugin independiente (se puede desactivar
+cualquiera sin romper el resto). El workflow "Publicar en prueba" las sube
+solas por FTP (ver `README.md` del repositorio); un plugin **nuevo** hay que
+activarlo una vez a mano desde **Plugins** — el workflow no activa nada,
+solo sube archivos.
 
-- **`ringopet-entrega/`**: ya estaba instalado antes de esta vuelta (fecha y
-  turno de entrega con ORDDD). No se toca sin avisar.
+- **`ringopet-entrega/`**: ya estaba instalado antes de la primera vuelta
+  (fecha y turno de entrega con ORDDD). No se toca sin avisar.
 - **`ringopet-regenerar/`**: dispara la publicación cuando cambia un
-  producto o su stock.
+  producto o su stock, y expone el endpoint para purgar la caché de
+  LiteSpeed después de publicar.
 - **`ringopet-pedido/`**: lectura de un pedido para `/pedido-recibido/` de
   Astro, y manda ahí todas las vueltas de pago.
+- **`ringopet-cuenta/`**: "Mi cuenta" en Astro (`/mi-cuenta/...`): sesión,
+  login, pedidos, direcciones, datos y recuperación de contraseña.
 
 ## `ringopet-regenerar`
 
@@ -43,6 +48,21 @@ si es un token con permisos detallados (fine-grained), acceso de **lectura y
 escritura** a "Actions" en este repositorio. Se genera desde GitHub en
 Settings > Developer settings > Personal access tokens. Nunca va en el
 repositorio ni en el chat: solo en `wp-config.php` del servidor.
+
+### Purgar la caché de LiteSpeed después de publicar
+
+`POST /wp-json/ringopet/v1/purgar-cache`, protegido por un token fijo (no
+por sesión: lo llama el workflow de GitHub Actions, no un navegador). Sin
+esto configurado, el paso de purgar del workflow falla en silencio y no
+afecta al resto de la publicación — no es obligatorio.
+
+```php
+define('RINGOPET_PURGE_TOKEN', 'un-token-largo-y-al-azar'); // ej. openssl rand -hex 32
+```
+
+El mismo valor va como secreto de GitHub (`RINGOPET_PURGE_TOKEN` para el
+workflow de prueba, `RINGOPET_PURGE_TOKEN_REAL` para el del sitio real —
+cada servidor define esta misma constante con su propio valor).
 
 ## `ringopet-pedido`
 

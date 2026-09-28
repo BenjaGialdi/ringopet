@@ -535,23 +535,33 @@ etiquetas**: botones sólidos, precios, enlaces, la insignia "Oferta". El
 naranja puro (`primario`) se mantiene para bordes, íconos y la marca en
 general, donde el requisito de contraste no aplica igual.
 
-## Regeneración automática
+## Regeneración y publicación automática
 
-- `.github/workflows/publicar.yml`: build + FTP. Se dispara con push a
-  `main`, a mano, por `repository_dispatch` (evento `regenerar`) y todos los
-  días a las 09:00 UTC. Necesita la variable `WOO_URL` además de los tres
-  secretos de FTP (ver `README.md`).
+- `.github/workflows/publicar-prueba.yml`: build (contra
+  `prueba.ringopet.com.ar`, fijo en el workflow) + FTP de `dist/` y de cada
+  carpeta de `wp-plugin/`, cada una con su propio estado de sincronización.
+  Se dispara con push a `main`, a mano, por `repository_dispatch` (evento
+  `regenerar`) y todos los días a las 09:00 UTC. Frena antes de subir si no
+  encuentra `wp-config.php` en la raíz de la cuenta FTP. Detalle completo en
+  `README.md`.
+- `.github/workflows/publicar-real.yml`: mismo workflow contra
+  `ringopet.com.ar`, con sus propios secretos (`FTP_REAL_*`) — preparado
+  pero **desactivado** (solo `workflow_dispatch`) hasta el lanzamiento.
 - `wp-plugin/ringopet-regenerar/`: plugin mínimo que, cuando cambia un
   producto o su stock en WooCommerce, agrupa los cambios y dispara el
-  `repository_dispatch` (como mucho una vez cada 10 minutos). Instrucciones
-  en `wp-plugin/README.md`. El token de GitHub va en `wp-config.php` del
-  servidor, nunca en este repositorio.
-- La acción de FTP no borra archivos de WordPress al publicar: solo borra,
-  del servidor, lo que ella misma subió antes y ya no está en `dist/`
-  (guarda su propio archivo de estado). Como las páginas de producto se
-  generan siempre —incluidas las de "sin stock"—, en la práctica una
-  página de producto solo desaparece del servidor si el producto se borra
-  de verdad en WooCommerce. Detalle en `README.md`.
+  `repository_dispatch` (como mucho una vez cada 10 minutos). También expone
+  `POST /wp-json/ringopet/v1/purgar-cache` (token fijo en `wp-config.php`,
+  ver "Purgar la caché" en `README.md`), que el workflow llama después de
+  publicar. Instrucciones completas en `wp-plugin/README.md`. El token de
+  GitHub para disparar el workflow va en `wp-config.php` del servidor, nunca
+  en este repositorio.
+- Cada acción de FTP no borra archivos de WordPress al publicar: solo
+  borra, del servidor, lo que ella misma subió antes y ya no está en la
+  carpeta local correspondiente (guarda su propio archivo de estado). Como
+  las páginas de producto se generan siempre —incluidas las de "sin
+  stock"—, en la práctica una página de producto solo desaparece del
+  servidor si el producto se borra de verdad en WooCommerce. Detalle en
+  `README.md`.
 
 ## Lighthouse móvil (sobre `npm run preview`, build contra `prueba.ringopet.com.ar`)
 
