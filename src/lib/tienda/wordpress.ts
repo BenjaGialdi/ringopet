@@ -10,6 +10,7 @@ const BASE_WP = `${WOO_URL}/wp-json/wp/v2`;
 interface ProductoWp {
   id: number;
   modified_gmt: string;
+  date_gmt: string;
 }
 
 interface PaginaWp {
@@ -28,6 +29,12 @@ function comoFechaUtc(fechaGmt: string): string {
 export async function obtenerFechasDeProductos(): Promise<Map<number, string>> {
   const items = await obtenerTodasLasPaginas<ProductoWp>('/product', { _fields: 'id,modified_gmt' }, BASE_WP);
   return new Map(items.map((p) => [p.id, comoFechaUtc(p.modified_gmt)]));
+}
+
+/** Fecha real de creación de cada producto (id -> timestamp), para el orden "Más nuevos" de /tienda/. */
+export async function obtenerFechasDeCreacion(): Promise<Map<number, number>> {
+  const items = await obtenerTodasLasPaginas<ProductoWp>('/product', { _fields: 'id,date_gmt' }, BASE_WP);
+  return new Map(items.map((p) => [p.id, new Date(comoFechaUtc(p.date_gmt)).getTime()]));
 }
 
 /**

@@ -1,9 +1,8 @@
 ---
 import Base from '../../layouts/Base.astro';
-import TarjetaProducto from '../../components/TarjetaProducto.astro';
-import FiltrosCategoria from '../../components/FiltrosCategoria.astro';
-import { obtenerTodasLasCategorias, rutaLocal, cadenaDeCategorias, hijasDe } from '../../lib/tienda/categorias';
-import { obtenerProductosPorCategoria } from '../../lib/tienda/productos';
+import ListadoProductos from '../../components/ListadoProductos.astro';
+import { obtenerTodasLasCategorias, rutaLocal, cadenaDeCategorias } from '../../lib/tienda/categorias';
+import { obtenerProductosParaListado } from '../../lib/tienda/productos';
 import type { Categoria } from '../../lib/tienda/tipos';
 
 export async function getStaticPaths() {
@@ -18,82 +17,17 @@ interface Props {
   categoria: Categoria;
 }
 
+const LOTE = 24;
 const { categoria } = Astro.props;
-const [todas, productos] = await Promise.all([obtenerTodasLasCategorias(), obtenerProductosPorCategoria(categoria.id)]);
-const subcategorias = hijasDe(todas, categoria.id);
+const [todas, productos] = await Promise.all([obtenerTodasLasCategorias(), obtenerProductosParaListado(categoria.id)]);
 const migas = cadenaDeCategorias(todas, categoria).map((c) => ({ nombre: c.name, ruta: rutaLocal(c.permalink) }));
-
-function precioMinimo(p: (typeof productos)[number]) {
-  const centavos = p.prices.price_range ? p.prices.price_range.min_amount : p.prices.price;
-  return Number(centavos) / 10 ** p.prices.currency_minor_unit;
-}
 ---
 
 <Base titulo={categoria.name} descripcion={categoria.description.replace(/<[^>]+>/g, '') || undefined} migas={migas}>
-  <section class="contenedor py-6">
-    <h1 class="text-3xl sm:text-4xl">{categoria.name}</h1>
-
-    {
-      subcategorias.length > 0 && (
-        <ul class="mt-4 flex flex-wrap gap-2">
-          {subcategorias.map((s) => (
-            <li>
-              <a href={rutaLocal(s.permalink)} class="inline-flex items-center gap-2 rounded-full border border-borde px-4 py-2 text-sm font-medium hover:border-primario hover:text-primario">
-                {s.name} <span class="text-texto-suave">({s.count})</span>
-              </a>
-            </li>
-          ))}
-        </ul>
-      )
-    }
-
-    <div class="mt-6 flex flex-col gap-8 lg:flex-row">
-      <FiltrosCategoria productos={productos} />
-
-      <div class="min-w-0 flex-1">
-        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-borde pb-3">
-          <p class="text-sm text-texto-suave">
-            <span data-total-resultados>{productos.length}</span> productos
-          </p>
-          <label class="flex items-center gap-2 text-sm">
-            Ordenar por
-            <select data-orden class="min-h-9 rounded-lg border border-borde px-2">
-              <option value="">Relevancia</option>
-              <option value="precio-asc">Menor precio</option>
-              <option value="precio-desc">Mayor precio</option>
-            </select>
-          </label>
-        </div>
-
-        {
-          productos.length === 0 ? (
-            <p class="py-12 text-center text-texto-suave">Todavía no hay productos cargados en esta categoría.</p>
-          ) : (
-            <div data-grilla class="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-4">
-              {productos.map((p, i) => (
-                <div
-                  data-item
-                  data-marca={p.brands[0]?.slug ?? ''}
-                  data-peso={p.attributes.find((a) => a.taxonomy === 'pa_peso')?.terms.map((t) => t.slug).join(' ') ?? ''}
-                  data-etapa={p.attributes.find((a) => a.taxonomy === 'pa_etapa-mascota')?.terms.map((t) => t.slug).join(' ') ?? ''}
-                  data-precio={precioMinimo(p)}
-                >
-                  <TarjetaProducto producto={p} prioridad={i < 4} />
-                </div>
-              ))}
-            </div>
-          )
-        }
-
-        <div class="mt-8 text-center">
-          <button type="button" data-mostrar-mas hidden class="boton-borde px-8">Mostrar más productos</button>
-        </div>
-      </div>
-    </div>
-  </section>
+  <ListadoProductos titulo={categoria.name} categoriaInicialSlug={categoria.slug} productosSsr={productos.slice(0, LOTE)} totalSsr={productos.length} />
 </Base>
 
 <script>
-  import { iniciarFiltrosCategoria } from '../../scripts/filtros-categoria';
-  iniciarFiltrosCategoria();
+  import { iniciarListadoProductos } from '../../scripts/listado-productos';
+  iniciarListadoProductos();
 </script>

@@ -36,6 +36,14 @@ export const GET: APIRoute = async () => {
 
   entradas.push({ loc: urlAbsoluta('/') });
 
+  // /tienda/: el listado completo, misma plantilla que cada categoría. lastmod = el más
+  // reciente de todos los productos (cambia cada vez que cambia cualquier producto).
+  let ultimaFechaGeneral: string | undefined;
+  for (const fecha of fechasProductos.values()) {
+    if (!ultimaFechaGeneral || fecha > ultimaFechaGeneral) ultimaFechaGeneral = fecha;
+  }
+  entradas.push({ loc: urlAbsoluta('/tienda/'), lastmod: ultimaFechaGeneral });
+
   const ultimaFechaPorCategoria = new Map<number, string>();
   for (const p of productos) {
     const fecha = fechasProductos.get(p.id);

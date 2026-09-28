@@ -52,11 +52,15 @@ muestran las páginas de Astro, no las de WooCommerce.
 
 Agregar también, en el mismo bloque: `/shop/` es el archivo de productos
 que genera WooCommerce/WoodMart, que ya no se usa (la navegación real es la
-de Astro). Redirige a la portada:
+de Astro, con `/tienda/` como el listado completo). Redirige ahí:
 
 ```apache
-RewriteRule ^shop/?$ / [R=301,L]
+RewriteRule ^shop/?$ /tienda/ [R=301,L]
 ```
+
+**En el servidor de prueba**, si ya está cargada la línea vieja
+(`RewriteRule ^shop/?$ / [R=301,L]`), cambiar el `/` final por `/tienda/`
+en esa misma línea del `.htaccess` — nada más de la línea cambia.
 
 Esta línea sí necesita `mod_rewrite` activo (`<IfModule mod_rewrite.c>` —
 normalmente ya está, junto con el bloque de WordPress).

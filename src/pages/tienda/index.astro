@@ -1,0 +1,17 @@
+---
+import Base from '../../layouts/Base.astro';
+import ListadoProductos from '../../components/ListadoProductos.astro';
+import { obtenerProductosParaListado } from '../../lib/tienda/productos';
+
+const LOTE = 24;
+const productos = await obtenerProductosParaListado();
+---
+
+<Base titulo="Productos" descripcion="Todo el catálogo de RingoPet: alimento, accesorios y más para perros, gatos y conejos, con envío en Córdoba capital.">
+  <ListadoProductos titulo="Productos" productosSsr={productos.slice(0, LOTE)} totalSsr={productos.length} />
+</Base>
+
+<script>
+  import { iniciarListadoProductos } from '../../scripts/listado-productos';
+  iniciarListadoProductos();
+</script>

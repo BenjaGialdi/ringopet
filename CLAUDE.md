@@ -113,15 +113,132 @@ los revalida al cargar la página y al elegir una variante (peso), sin
 recargar. Si no hay WooCommerce en el mismo origen (por ejemplo `npm run dev`
 en la compu), el fetch falla en silencio y queda el valor del build.
 
-## Filtros de categoría y búsqueda: todo en el navegador
+## Listado único de productos (`/tienda/` y cada categoría)
 
-- `src/scripts/filtros-categoria.ts`: filtra y ordena sobre el HTML ya
-  generado (atributos `data-marca`, `data-peso`, `data-etapa`, `data-precio`
-  en cada tarjeta), sin pedir nada de nuevo. Paginado con "Mostrar más"
-  (lotes de 24).
-- `src/scripts/busqueda.ts`: búsqueda en vivo contra
-  `/wp-json/wc/store/v1/products?search=...` (ruta relativa, solo funciona
-  publicado en el mismo dominio que WooCommerce).
+Una sola plantilla (`src/components/ListadoProductos.astro`) para las dos
+cosas que antes eran implementaciones separadas: `/tienda/` (todo el
+catálogo, sin categoría aplicada) y cada `/categoria-producto/.../` (misma
+plantilla, con esa categoría ya marcada en el árbol). Lo único que cambia
+entre una y otra: título, descripción, migas de pan y qué categoría arranca
+tildada — el resto (filtros, orden, tarjetas, "mostrar más") es
+exactamente el mismo código.
+
+**Datos**: `src/pages/tienda/datos.json.ts` arma en el build un JSON
+compacto con los ~380 productos con stock (id, nombre, ruta, imagen, marca,
+categorías **con sus ancestros** — así marcar "Perros" en el árbol trae
+también los de "Perros > Alimentos" sin que Woo tenga que etiquetar el
+producto dos veces —, precio, precio anterior si está en oferta, peso en
+kg si se puede calcular con certeza, precio por kilo, etapa, tamaño de
+raza, peso, variantes de peso si es un producto variable, puesto en
+"Más vendidos" y fecha de creación) más los metadatos para armar las
+listas de filtros (nombres de marca/etapa/tamaño/peso que existen de
+verdad en el catálogo). `src/scripts/listado-productos.ts` lo pide una
+sola vez y filtra, ordena, cuenta por opción y pagina todo en el
+navegador — nunca vuelve a pedir nada a Woo salvo el precio/stock en vivo
+al elegir un peso (ver más abajo).
+
+**SEO**: la primera tanda (24 productos, en el orden "Más vendidos") va en
+el HTML del build, para que un buscador vea contenido real sin JS; el resto
+se arma con el JSON. El `<link rel="canonical">` de `Seo.astro` usa
+`Astro.url.pathname` nada más (nunca la query string): como ya se genera
+así en el build, una URL con filtros (`?marca=...`) automáticamente lleva
+canonical a la página sin filtros, sin código aparte. `/tienda/` y cada
+categoría están en `sitemap.xml.ts` (indexables, sin excepción).
+
+**Atributos de WooCommerce usados** (verificado en
+`prueba.ringopet.com.ar` contra `wc/store/v1/products/attributes`):
+`pa_peso` (Peso), `pa_etapa-mascota` (Etapa Mascota: Adulto, Adulto
+asumido, Cachorro, Senior) y `pa_tamano-mascota` (Tamaño Mascota: Chica,
+Mediana, Grande y combinaciones — nuevo esta vuelta, mapea a "tamaño de
+raza"). Marca no es un atributo: es la taxonomía de marcas de WooCommerce
+(`brands`), ya usada desde antes.
+
+**"Presentación" no se pudo cargar**: no hay ningún atributo de Woo que
+represente eso (bolsa/lata/sachet). Los dos candidatos que existen no
+sirven: `pa_medida` son medidas de almohadillas para practicar (N3, N4...,
+en cm, para un puñado de productos puntuales) y `pa_talle` mezcla talles
+de ropa para mascota con nombres de variantes de shampoo (Buddy, Puppy,
+Jabón Blanco Líquido Cremoso...) en el mismo listado — no son un filtro
+usable tal cual están cargados. Si "presentación" tiene que existir como
+filtro, hace falta cargar un atributo nuevo y limpio en WooCommerce
+primero.
+
+**Precio por kilo**: `src/lib/tienda/precio-por-kg.ts` (`pesoEnKg`,
+`precioPorKg`), compartido entre el build (`datos.json.ts`,
+`TarjetaProducto.astro`) y el navegador (`tarjetas.ts`). Solo se muestra
+si el nombre del término de peso tiene un número reconocible (regex
+`\d+(kg|g|gr...)`) y el producto tiene un único peso posible: un producto
+variable con varios pesos no tiene un precio por kilo fijo hasta elegir
+una variante (ahí se calcula en vivo, ver abajo). Nunca se inventa el
+peso si no se puede leer con confianza.
+
+**Tarjeta de producto**: un componente para el build
+(`TarjetaProducto.astro`: portada, relacionados, primera tanda de
+`/tienda/` y categorías) y una función JS gemela para todo lo que arma el
+navegador (`src/scripts/tarjetas.ts`: filtros, "mostrar más", búsqueda) —
+no se pueden compartir como un solo archivo porque uno corre en el build y
+el otro en el navegador, así que se mantienen alineados a mano, con el
+mismo diseño y los mismos datos. Selector de peso (si el producto varía
+por peso) con precio y stock en vivo al elegir, igual criterio que
+`producto-variantes.ts` en la ficha de producto — un solo listener
+delegado por página (`iniciarTarjetasInteractivas`, iniciado una vez desde
+`Encabezado.astro` para que funcione en cualquier tarjeta del sitio, no
+solo en el listado). Si el producto varía por algo que no es peso (sabor,
+color...), sigue mostrando "Elegir opciones" hacia la ficha, como antes.
+
+**Filtros**: categoría (árbol completo, selección múltiple, con conteo por
+opción), marca, peso, etapa, tamaño de raza, precio (mín/máx), "En
+oferta" y un buscador dentro del listado. Cada opción muestra cuántos
+productos quedarían si se sumara ese filtro a los ya activos (conteo
+"facetado" de toda la vida: se recalcula sobre el catálogo completo
+filtrado por todo MENOS el propio grupo que se está contando) — las que
+dan 0 quedan deshabilitadas. Filtros activos como etiquetas con su ✕
+arriba de la grilla, y "Limpiar todo". Todo en la URL
+(`?categoria=&marca=&peso=&etapa=&tamano=&precio_min=&precio_max=&oferta=1&buscar=&orden=`),
+con `history.pushState` en cada cambio para que "Atrás" del navegador
+vuelva al filtro anterior. Un solo bloque de filtros (`<template>` en
+`ListadoProductos.astro`, clonado dos veces) para la columna fija de
+compu y el panel que sube desde abajo en celular — nunca dos
+implementaciones.
+
+**Orden**: Más vendidos (por defecto, `orderby=popularity` de la Store
+API, con caché en el build — `obtenerRankingPopularidad()` — para no
+pedir el catálogo entero ordenado una vez por cada una de las 35
+categorías más `/tienda/` más `datos.json.ts`), menor/mayor precio, menor
+precio por kilo, ofertas primero, más nuevos (fecha real de creación,
+`wp/v2/product`).
+
+**Búsqueda** (`src/scripts/busqueda.ts`): sigue siendo en vivo contra
+`/wp-json/wc/store/v1/products?search=...` (no contra el listado
+estático: necesita resultados de cualquier producto, no solo los primeros
+24), pero ahora arma la misma tarjeta que el resto del sitio
+(`tarjeta-html` vía `tarjetas.ts`), adaptando la respuesta completa de la
+Store API a la misma forma que usa el listado — sin pedir nada extra,
+esos campos ya venían en la respuesta y antes se ignoraban.
+
+**`/shop/`**: ahora redirige a `/tienda/` en vez de a la portada (ver
+`README.md` — falta el cambio manual en el `.htaccess` real del
+servidor).
+
+**Peso del JSON** (`/tienda/datos.json`, ~380 productos con stock): 266 KB
+sin comprimir, **25,6 KB con gzip** — el navegador lo pide comprimido
+siempre que el servidor lo permita (LiteSpeed lo hace por defecto para
+`.json`).
+
+**Rendimiento del build**: al principio el build tardaba más de 5 minutos
+por un problema real — `obtenerRankingPopularidad()` (usada por cada una
+de las 35 categorías más `/tienda/` más `datos.json.ts`) no tenía caché en
+memoria, así que pedía el catálogo entero ordenado por popularidad una vez
+por cada una de esas 37 páginas. Con la caché puesta (mismo patrón que ya
+usaban `obtenerTodosLosProductos`/`obtenerTodasLasCategorias`), el build
+completo quedó en ~55 segundos, en línea con lo que tardaba antes de esta
+vuelta.
+
+Pendiente de medir (no se pudo en esta sesión): Lighthouse móvil real de
+`/tienda/` y de una categoría contra `prueba.ringopet.com.ar` publicado
+(local, con `npm run preview`, no hay WooCommerce para el carrito/precio
+en vivo — el mismo límite que ya aplicaba a `/carrito/` y
+`/finalizar-compra/`, ver más abajo).
 
 ## Imágenes
 
@@ -680,6 +797,11 @@ npm run preview  # sirve dist/ ya generado
 
 ## Pendiente / a confirmar con Benja antes de publicar en el sitio real
 
+- **`/tienda/`**: Lighthouse móvil real (contra `prueba.ringopet.com.ar`
+  publicado, no local — ver "Listado único de productos" más arriba) y
+  decidir sobre "presentación" (no hay atributo de Woo que sirva tal cual
+  está cargado hoy — ver la misma sección) y sobre `.htaccess` real
+  (`/shop/` ahora apunta a `/tienda/`, ver `README.md`).
 - **Probar con un pago de Mercado Pago realmente rechazado y con una
   vuelta "pendiente" real** (ver "Vuelta de Mercado Pago sin pagar" más
   arriba): solo se pudo probar el caso cancelado con un pedido real; el

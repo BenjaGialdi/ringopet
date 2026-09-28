@@ -338,3 +338,60 @@ export interface DatosCuenta {
   last_name: string;
   email: string;
 }
+
+/** Tipos del listado único de productos (/tienda/ y /categoria-producto/.../), armados en src/pages/tienda/datos.json.ts. */
+
+export interface VarianteListado {
+  id: number;
+  pesoSlug: string;
+  pesoNombre: string;
+}
+
+export interface ProductoListado {
+  id: number;
+  nombre: string;
+  ruta: string;
+  imagen: string | null;
+  imagenAlt: string;
+  marcaNombre: string | null;
+  marcaSlug: string | null;
+  /** IDs propios más los de todas las categorías ancestras, para que un padre incluya a sus hijas. */
+  categorias: number[];
+  precio: number;
+  precioRegular: number | null;
+  enOferta: boolean;
+  pesoKg: number | null;
+  precioPorKg: number | null;
+  etapas: string[];
+  tamanos: string[];
+  pesos: string[];
+  tieneOpciones: boolean;
+  variantes: VarianteListado[];
+  masVendidosRank: number;
+  creado: number;
+}
+
+export interface OpcionFiltro {
+  slug: string;
+  nombre: string;
+}
+
+export interface CategoriaListado {
+  id: number;
+  nombre: string;
+  slug: string;
+  padre: number;
+  ruta: string;
+}
+
+export interface RespuestaListado {
+  productos: ProductoListado[];
+  moneda: { decimales: number; prefijo: string; sufijo: string };
+  meta: {
+    categorias: CategoriaListado[];
+    marcas: OpcionFiltro[];
+    etapas: OpcionFiltro[];
+    tamanos: OpcionFiltro[];
+    pesos: OpcionFiltro[];
+  };
+}

@@ -1,0 +1,168 @@
+---
+/**
+ * Listado único de productos: lo usan /tienda/ (todo el catálogo) y cada
+ * /categoria-producto/.../ (misma plantilla, con esa categoría ya marcada). Ver
+ * src/scripts/listado-productos.ts para el filtrado, el orden y los conteos, todo
+ * a partir de /tienda/datos.json.ts.
+ */
+import TarjetaProducto from './TarjetaProducto.astro';
+import ArbolCategoriasFiltro from './ArbolCategoriasFiltro.astro';
+import { obtenerTodasLasCategorias, obtenerCategoriasPrincipales } from '../lib/tienda/categorias';
+import type { Producto } from '../lib/tienda/tipos';
+
+interface Props {
+  titulo: string;
+  /** slug de la categoría ya aplicada (solo en /categoria-producto/.../), para marcarla de entrada en el árbol. */
+  categoriaInicialSlug?: string;
+  /** Primeros productos para el HTML inicial (SEO y primer pintado); el resto lo arma el JS desde datos.json.ts. */
+  productosSsr: Producto[];
+  totalSsr: number;
+}
+
+const { titulo, categoriaInicialSlug, productosSsr, totalSsr } = Astro.props;
+const categorias = await obtenerTodasLasCategorias();
+const principales = await obtenerCategoriasPrincipales();
+---
+
+<section class="contenedor py-6" data-listado data-categoria-inicial={categoriaInicialSlug ?? ''}>
+  <h1 class="text-3xl sm:text-4xl">{titulo}</h1>
+
+  <div class="mt-4 flex flex-wrap items-center justify-between gap-3 border-b border-borde pb-3">
+    <div class="flex items-center gap-3">
+      <button type="button" data-abrir-filtros class="boton-borde flex items-center gap-2 px-4 py-2 text-sm lg:hidden">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true" focusable="false">
+          <path d="M4 6h16M7 12h10M10 18h4" />
+        </svg>
+        Filtrar
+      </button>
+      <p class="text-sm text-texto-suave"><span data-total-resultados>{totalSsr}</span> productos</p>
+    </div>
+    <label class="flex items-center gap-2 text-sm">
+      Ordenar por
+      <select data-orden class="min-h-9 rounded-lg border border-borde px-2">
+        <option value="vendidos">Más vendidos</option>
+        <option value="precio-asc">Menor precio</option>
+        <option value="precio-desc">Mayor precio</option>
+        <option value="precio-kg-asc">Menor precio por kilo</option>
+        <option value="oferta">Ofertas primero</option>
+        <option value="nuevos">Más nuevos</option>
+      </select>
+    </label>
+  </div>
+
+  <ul data-chips class="mt-3 flex flex-wrap gap-2 empty:mt-0"></ul>
+
+  <div class="mt-6 flex flex-col gap-8 lg:flex-row">
+    <!-- Compu: columna fija. Celular: mismo contenido, dentro del <dialog> de abajo. -->
+    <aside class="hidden w-64 shrink-0 lg:block">
+      <div data-filtros-escritorio></div>
+    </aside>
+
+    <div class="min-w-0 flex-1">
+      <p data-sin-resultados hidden class="py-12 text-center text-texto-suave">
+        No encontramos productos con estos filtros. <button type="button" data-limpiar-filtros class="text-primario-oscuro underline underline-offset-2">Limpiar filtros</button>
+      </p>
+
+      <div data-grilla class="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-4">
+        {productosSsr.map((p, i) => (
+          <div data-item-ssr>
+            <TarjetaProducto producto={p} prioridad={i < 4} />
+          </div>
+        ))}
+      </div>
+
+      <div class="mt-8 text-center">
+        <button type="button" data-mostrar-mas hidden class="boton-borde px-8">Mostrar más productos</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Celular: panel de filtros desde abajo. -->
+<dialog data-panel-filtros aria-label="Filtrar productos" class="m-0 mt-auto h-[85dvh] w-full max-w-none rounded-t-2xl border-none p-0 backdrop:bg-black/50 backdrop:backdrop-blur-sm open:animate-none lg:hidden">
+  <div class="flex h-full flex-col">
+    <div class="flex items-center justify-between border-b border-borde p-4">
+      <p class="font-titulos text-lg font-bold">Filtros</p>
+      <button type="button" data-cerrar-filtros aria-label="Cerrar filtros" class="flex h-9 w-9 items-center justify-center rounded-full hover:bg-fondo-suave">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true" focusable="false">
+          <path d="M6 6l12 12M18 6 6 18" />
+        </svg>
+      </button>
+    </div>
+    <div class="flex-1 overflow-y-auto p-4" data-filtros-celular></div>
+    <div class="border-t border-borde p-4">
+      <button type="button" data-ver-productos class="boton w-full">Ver productos</button>
+    </div>
+  </div>
+</dialog>
+
+<!-- Plantilla de los filtros: se clona en la columna de compu y en el panel de celular, así no hay dos implementaciones. -->
+<template data-plantilla-filtros>
+  <div class="flex items-center justify-between">
+    <h2 class="text-lg lg:hidden">Filtros</h2>
+    <h2 class="hidden text-lg lg:block">Filtros</h2>
+    <button type="button" data-limpiar-filtros class="text-sm text-primario-oscuro underline underline-offset-2">Limpiar todo</button>
+  </div>
+
+  <div class="mt-3">
+    <label for="buscar-listado" class="sr-only">Buscar en este listado</label>
+    <input id="buscar-listado" type="search" data-buscar-listado placeholder="Buscar en este listado" class="min-h-11 w-full rounded-lg border border-borde px-3 text-sm" />
+  </div>
+
+  <details open class="mt-4 border-b border-borde pb-4">
+    <summary class="cursor-pointer list-none font-semibold [&::-webkit-details-marker]:hidden">Categoría</summary>
+    <div class="mt-2 max-h-64 overflow-y-auto">
+      {principales.map((c) => (
+        <div>
+          <label class="flex min-h-9 cursor-pointer items-center justify-between gap-2 text-sm font-medium">
+            <span class="flex items-center gap-2">
+              <input type="checkbox" data-filtro-categoria value={c.slug} data-id={c.id} class="h-4 w-4 accent-primario" />
+              {c.name}
+            </span>
+            <span class="text-xs text-texto-suave" data-conteo-categoria={c.slug} />
+          </label>
+          <ArbolCategoriasFiltro categorias={categorias} padreId={c.id} nivel={1} />
+        </div>
+      ))}
+    </div>
+  </details>
+
+  <details open class="mt-4 border-b border-borde pb-4" data-grupo-marca hidden>
+    <summary class="cursor-pointer list-none font-semibold [&::-webkit-details-marker]:hidden">Marca</summary>
+    <ul class="mt-2 max-h-48 space-y-1 overflow-y-auto" data-lista-marca></ul>
+  </details>
+
+  <details open class="mt-4 border-b border-borde pb-4" data-grupo-peso hidden>
+    <summary class="cursor-pointer list-none font-semibold [&::-webkit-details-marker]:hidden">Peso</summary>
+    <ul class="mt-2 flex flex-wrap gap-2" data-lista-peso></ul>
+  </details>
+
+  <details open class="mt-4 border-b border-borde pb-4" data-grupo-etapa hidden>
+    <summary class="cursor-pointer list-none font-semibold [&::-webkit-details-marker]:hidden">Etapa de la mascota</summary>
+    <ul class="mt-2 space-y-1" data-lista-etapa></ul>
+  </details>
+
+  <details open class="mt-4 border-b border-borde pb-4" data-grupo-tamano hidden>
+    <summary class="cursor-pointer list-none font-semibold [&::-webkit-details-marker]:hidden">Tamaño de la raza</summary>
+    <ul class="mt-2 space-y-1" data-lista-tamano></ul>
+  </details>
+
+  <details open class="mt-4 border-b border-borde pb-4">
+    <summary class="cursor-pointer list-none font-semibold [&::-webkit-details-marker]:hidden">Precio</summary>
+    <div class="mt-2 flex items-center gap-2 text-sm">
+      <label class="sr-only" for="precio-min">Precio mínimo</label>
+      <input id="precio-min" type="number" min="0" inputmode="numeric" data-precio-min placeholder="Mín." class="min-h-9 w-full rounded-lg border border-borde px-2" />
+      <span class="text-texto-suave">–</span>
+      <label class="sr-only" for="precio-max">Precio máximo</label>
+      <input id="precio-max" type="number" min="0" inputmode="numeric" data-precio-max placeholder="Máx." class="min-h-9 w-full rounded-lg border border-borde px-2" />
+    </div>
+  </details>
+
+  <details open class="mt-4 pb-4">
+    <summary class="cursor-pointer list-none font-semibold [&::-webkit-details-marker]:hidden">Más filtros</summary>
+    <label class="mt-2 flex min-h-9 cursor-pointer items-center gap-2 text-sm">
+      <input type="checkbox" data-filtro-oferta class="h-4 w-4 accent-primario" />
+      Solo en oferta
+    </label>
+  </details>
+</template>

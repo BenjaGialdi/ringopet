@@ -1,0 +1,33 @@
+---
+/** Recursivo: una rama del árbol de categorías para el filtro de /tienda/ y categorías. */
+import { hijasDe } from '../lib/tienda/categorias';
+import type { Categoria } from '../lib/tienda/tipos';
+
+interface Props {
+  categorias: Categoria[];
+  padreId: number;
+  nivel?: number;
+}
+
+const { categorias, padreId, nivel = 0 } = Astro.props;
+const hijas = hijasDe(categorias, padreId);
+---
+
+{
+  hijas.length > 0 && (
+    <ul class:list={['space-y-1', nivel > 0 && 'ml-4 mt-1 border-l border-borde pl-3']}>
+      {hijas.map((c) => (
+        <li>
+          <label class="flex min-h-9 cursor-pointer items-center justify-between gap-2 text-sm">
+            <span class="flex items-center gap-2">
+              <input type="checkbox" data-filtro-categoria value={c.slug} data-id={c.id} class="h-4 w-4 accent-primario" />
+              {c.name}
+            </span>
+            <span class="text-xs text-texto-suave" data-conteo-categoria={c.slug} />
+          </label>
+          <Astro.self categorias={categorias} padreId={c.id} nivel={nivel + 1} />
+        </li>
+      ))}
+    </ul>
+  )
+}

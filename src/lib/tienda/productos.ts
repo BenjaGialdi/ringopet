@@ -1,5 +1,6 @@
 import { obtenerJson, obtenerTodasLasPaginas } from './cliente';
 import { decodificarEntidades } from '../texto';
+import { idsConAncestros, obtenerTodasLasCategorias } from './categorias';
 import type { Producto } from './tipos';
 
 /** Ruta local del sitio a partir del permalink de WooCommerce (mismo dominio, misma estructura de URLs). */
@@ -66,4 +67,32 @@ export async function obtenerEnOferta(cantidad = 12): Promise<Producto[]> {
 
 export async function obtenerMasPedidos(cantidad = 12): Promise<Producto[]> {
   return (await obtenerJson<Producto[]>('/products', { orderby: 'popularity', per_page: cantidad })).map(normalizar);
+}
+
+let cacheRanking: Map<number, number> | null = null;
+
+/**
+ * Puesto de cada producto en ventas (0 = el más vendido), para el orden "Más vendidos" de
+ * /tienda/. Con caché: si no, cada categoría (35) más /tienda/ más datos.json.ts pedirían
+ * el catálogo entero ordenado por popularidad cada una, por separado.
+ */
+export async function obtenerRankingPopularidad(): Promise<Map<number, number>> {
+  if (cacheRanking) return cacheRanking;
+  const enOrden = await obtenerTodasLasPaginas<{ id: number }>('/products', { orderby: 'popularity', stock_status: 'instock' });
+  cacheRanking = new Map(enOrden.map((p, i) => [p.id, i]));
+  return cacheRanking;
+}
+
+/**
+ * Primera tanda de /tienda/ o de una categoría (con sus subcategorías), ya en el orden por
+ * defecto ("Más vendidos"), para el HTML del build — el resto lo arma el navegador desde
+ * datos.json.ts con el mismo criterio. Sin categoriaId: todo el catálogo con stock.
+ */
+export async function obtenerProductosParaListado(categoriaId?: number): Promise<Producto[]> {
+  const [enStock, categorias, ranking] = await Promise.all([obtenerProductosEnStock(), obtenerTodasLasCategorias(), obtenerRankingPopularidad()]);
+  const filtrados =
+    categoriaId === undefined
+      ? enStock
+      : enStock.filter((p) => idsConAncestros(categorias, p.categories.map((c) => c.id)).includes(categoriaId));
+  return [...filtrados].sort((a, b) => (ranking.get(a.id) ?? Infinity) - (ranking.get(b.id) ?? Infinity));
 }

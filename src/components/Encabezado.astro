@@ -67,6 +67,9 @@ const enlacesInfo = [
 
   <nav aria-label="Categorías principales" class="hidden border-t border-borde md:block">
     <ul class="contenedor flex gap-6 py-2 text-sm">
+      <li>
+        <a href="/tienda/" class="font-medium hover:text-primario">Productos</a>
+      </li>
       {
         principales.map((c) => (
           <li>
@@ -93,11 +96,14 @@ const enlacesInfo = [
 
     <nav class="flex-1 overflow-y-auto p-4" aria-label="Categorías y enlaces">
       <ul class="space-y-1">
+        <li data-r style="transition-delay:0ms">
+          <a href="/tienda/" class="block min-h-11 rounded-lg px-2 py-2.5 font-semibold hover:bg-fondo-suave">Productos</a>
+        </li>
         {
           principales.map((cat, i) => {
             const hijas = hijasDe(categorias, cat.id);
             return (
-              <li data-r style={`transition-delay:${i * 60}ms`}>
+              <li data-r style={`transition-delay:${(i + 1) * 60}ms`}>
                 {hijas.length > 0 ? (
                   <details class="group">
                     <summary class="flex min-h-11 cursor-pointer list-none items-center justify-between rounded-lg px-2 font-semibold hover:bg-fondo-suave [&::-webkit-details-marker]:hidden">
@@ -132,14 +138,14 @@ const enlacesInfo = [
       <ul class="space-y-1">
         {
           enlacesInfo.map((e, i) => (
-            <li data-r style={`transition-delay:${(principales.length + i) * 60}ms`}>
+            <li data-r style={`transition-delay:${(principales.length + 1 + i) * 60}ms`}>
               <a href={e.ruta} class="block min-h-11 rounded-lg px-2 py-2.5 text-texto hover:bg-fondo-suave">
                 {e.texto}
               </a>
             </li>
           ))
         }
-        <li data-r style={`transition-delay:${(principales.length + enlacesInfo.length) * 60}ms`}>
+        <li data-r style={`transition-delay:${(principales.length + 1 + enlacesInfo.length) * 60}ms`}>
           <a href={sitio.rutas.miCuenta} class="block min-h-11 rounded-lg px-2 py-2.5 font-semibold hover:bg-fondo-suave">Mi cuenta</a>
         </li>
       </ul>
@@ -177,11 +183,17 @@ const enlacesInfo = [
 <script>
   import { iniciarCarritoUI } from '../scripts/carrito-ui';
   import { actualizarSesion } from '../lib/tienda/sesion-navegador';
+  import { iniciarTarjetasInteractivas } from '../scripts/tarjetas';
 
   iniciarCarritoUI();
   // En segundo plano, no bloquea nada: deja el nonce de WordPress listo para cuando haga
   // falta (ver sesion-navegador.ts). Si falla o no hay sesión, el resto del sitio sigue igual.
   actualizarSesion();
+
+  // Selector de peso de las tarjetas (portada, relacionados, listado): un solo listener
+  // delegado para todo el sitio, ver src/scripts/tarjetas.ts. Moneda fija (ARS, $, 2
+  // decimales) porque acá no hay ningún dato de producto a mano para sacarla de ahí.
+  iniciarTarjetasInteractivas({ decimales: 2, prefijo: '$ ', sufijo: '' });
 
   // Menú lateral: abre/cierra como <dialog>, cierra con Escape (nativo), clic afuera o al elegir un enlace.
   const menu = document.querySelector<HTMLDialogElement>('[data-menu-lateral]');

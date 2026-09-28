@@ -58,3 +58,29 @@ export function cadenaDeCategorias(categorias: Categoria[], categoria: Categoria
   }
   return cadena;
 }
+
+/**
+ * IDs propios de un producto más todos sus ancestros (padre, abuelo...), para que filtrar
+ * por una categoría del árbol (ej. "Perros") también traiga los productos de sus
+ * subcategorías (ej. "Perros > Alimentos"), sin necesitar que Woo etiquete el producto con
+ * la categoría padre además de la hija.
+ */
+export function idsConAncestros(categorias: Categoria[], idsPropios: number[]): number[] {
+  const resultado = new Set<number>(idsPropios);
+  for (const id of idsPropios) {
+    let actual = categorias.find((c) => c.id === id);
+    while (actual && actual.parent !== 0) {
+      const padre = categorias.find((c) => c.id === actual!.parent);
+      if (!padre) break;
+      resultado.add(padre.id);
+      actual = padre;
+    }
+  }
+  return Array.from(resultado);
+}
+
+/** Todas las descendientes de una categoría (hijas, nietas...), para saber si tiene subcategorías. */
+export function descendientesDe(categorias: Categoria[], padreId: number): Categoria[] {
+  const directas = hijasDe(categorias, padreId);
+  return directas.flatMap((h) => [h, ...descendientesDe(categorias, h.id)]);
+}
