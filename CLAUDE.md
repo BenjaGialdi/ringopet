@@ -680,6 +680,12 @@ npm run preview  # sirve dist/ ya generado
 
 ## Pendiente / a confirmar con Benja antes de publicar en el sitio real
 
+- **Probar con un pago de Mercado Pago realmente rechazado y con una
+  vuelta "pendiente" real** (ver "Vuelta de Mercado Pago sin pagar" más
+  arriba): solo se pudo probar el caso cancelado con un pedido real; el
+  aviso "rechazado" y el texto "Tu pago está pendiente" quedaron armados
+  con la mejor información disponible, sin poder confirmarlos con una
+  vuelta real de esos dos tipos.
 - **Instalar y activar `wp-plugin/ringopet-cuenta/`** en `prueba.ringopet.com.ar`
   (ver "Mi cuenta" más arriba): sin esto, `/mi-cuenta/*` no tiene con qué
   hablar del lado de WordPress. Falta correr ahí las pruebas de punta a
