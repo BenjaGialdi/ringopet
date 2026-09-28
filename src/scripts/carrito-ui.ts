@@ -4,6 +4,7 @@
  * [data-agregar-carrito][data-id] agrega ese producto, sin importar en qué página está.
  */
 import { obtenerCarrito, agregarAlCarrito, actualizarCantidad, quitarDelCarrito } from '../lib/tienda/carrito';
+import { leerCarritoCache } from '../lib/tienda/cache-navegador';
 import { formatearPrecio } from '../lib/moneda';
 import type { Carrito } from '../lib/tienda/tipos';
 
@@ -75,10 +76,16 @@ async function abrirCarrito() {
   if (!dialogo) return;
   dialogo.showModal();
   document.body.style.overflow = 'hidden';
+
+  // Se pinta al instante con la última copia conocida (sessionStorage); si WooCommerce
+  // responde distinto (precio, stock), gana esa respuesta y se repinta.
+  const cache = leerCarritoCache();
+  if (cache) pintarCarrito(cache);
+
   try {
     pintarCarrito(await obtenerCarrito());
   } catch {
-    // Sin conexión a WooCommerce (ej. npm run dev sin backend): el panel queda vacío.
+    // Sin conexión a WooCommerce (ej. npm run dev sin backend): se queda con la caché si había.
   }
 }
 
@@ -135,6 +142,8 @@ export function iniciarCarritoUI() {
 
   if (!cargado) {
     cargado = true;
+    const cache = leerCarritoCache();
+    if (cache) pintarContadores(cache);
     obtenerCarrito()
       .then(pintarContadores)
       .catch(() => {});

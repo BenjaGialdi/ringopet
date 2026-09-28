@@ -5,7 +5,8 @@
  * dominio donde está publicado el sitio.
  */
 import { llamarApi } from './api-navegador';
-import type { DireccionCarrito, Disponibilidad, DetallePedido, RespuestaCheckout, Carrito } from './tipos';
+import { guardarCarritoCache, guardarMediosPagoCache } from './cache-navegador';
+import type { DireccionCarrito, Disponibilidad, DetallePedido, RespuestaCheckout, Carrito, RespuestaMediosPago } from './tipos';
 
 export interface BorradorCheckout {
   customer_id: number;
@@ -33,8 +34,10 @@ export function pagar(datos: DatosCheckout): Promise<RespuestaCheckout> {
   return llamarApi('/checkout', { method: 'POST', body: JSON.stringify(datos) });
 }
 
-export function obtenerBorradorCheckout(): Promise<BorradorCheckout> {
-  return llamarApi('/checkout');
+export async function obtenerBorradorCheckout(): Promise<BorradorCheckout> {
+  const borrador = await llamarApi<BorradorCheckout>('/checkout');
+  guardarCarritoCache(borrador.__experimentalCart);
+  return borrador;
 }
 
 /**
@@ -44,6 +47,7 @@ export function obtenerBorradorCheckout(): Promise<BorradorCheckout> {
  */
 export async function actualizarMedioDePago(payment_method: string): Promise<Carrito> {
   const borrador = await llamarApi<BorradorCheckout>('/checkout', { method: 'PUT', body: JSON.stringify({ payment_method }) });
+  guardarCarritoCache(borrador.__experimentalCart);
   return borrador.__experimentalCart;
 }
 
@@ -62,9 +66,11 @@ export async function obtenerPedido(id: number, clave: string): Promise<DetalleP
   return cuerpo;
 }
 
-/** Título de cada medio de pago tal como está cargado en WooCommerce > Ajustes > Pagos (id -> título). */
-export async function obtenerTitulosMediosPago(): Promise<Record<string, string>> {
+/** Título, descripción, ícono y texto de privacidad de cada medio de pago, tal cual WooCommerce > Ajustes > Pagos. */
+export async function obtenerMediosDePago(): Promise<RespuestaMediosPago> {
   const respuesta = await fetch('/wp-json/ringopet/v1/medios-pago', { headers: { Accept: 'application/json' } });
   if (!respuesta.ok) throw new Error('No se pudieron consultar los medios de pago.');
-  return respuesta.json();
+  const datos = (await respuesta.json()) as RespuestaMediosPago;
+  guardarMediosPagoCache(datos);
+  return datos;
 }

@@ -1,5 +1,6 @@
 /** Página /carrito/: carrito completo (no el panel lateral, que sigue sirviendo para agregar rápido desde cualquier página). */
 import { obtenerCarrito, actualizarCantidad, quitarDelCarrito, aplicarCupon, quitarCupon } from '../lib/tienda/carrito';
+import { leerCarritoCache } from '../lib/tienda/cache-navegador';
 import { formatearPrecio } from '../lib/moneda';
 import { ErrorApi } from '../lib/tienda/api-navegador';
 import type { Carrito } from '../lib/tienda/tipos';
@@ -19,6 +20,7 @@ export function iniciarPaginaCarrito() {
   if (!raiz) return;
   const q = <T extends HTMLElement>(selector: string) => raiz.querySelector<T>(selector);
 
+  const esqueleto = q<HTMLElement>('[data-carrito-esqueleto]');
   const vacio = q<HTMLElement>('[data-carrito-vacio]');
   const contenido = q<HTMLElement>('[data-carrito-contenido]');
   const lista = q<HTMLElement>('[data-carrito-items]');
@@ -36,6 +38,7 @@ export function iniciarPaginaCarrito() {
   if (!vacio || !contenido || !lista) return;
 
   function pintar(carrito: Carrito) {
+    if (esqueleto) esqueleto.hidden = true;
     actualizarContadores(carrito);
     const hayItems = carrito.items.length > 0;
     vacio!.hidden = hayItems;
@@ -154,10 +157,18 @@ export function iniciarPaginaCarrito() {
     }
   });
 
+  // Se pinta al instante con la última copia conocida; si no hay ninguna (primera visita),
+  // se ve el esqueleto en vez de un espacio vacío hasta que responda WooCommerce.
+  const cache = leerCarritoCache();
+  if (cache) pintar(cache);
+
   obtenerCarrito()
     .then(pintar)
     .catch(() => {
-      vacio.textContent = 'No pudimos cargar el carrito. Probá de nuevo en un momento.';
-      vacio.hidden = false;
+      if (esqueleto) esqueleto.hidden = true;
+      if (!cache) {
+        vacio.textContent = 'No pudimos cargar el carrito. Probá de nuevo en un momento.';
+        vacio.hidden = false;
+      }
     });
 }
