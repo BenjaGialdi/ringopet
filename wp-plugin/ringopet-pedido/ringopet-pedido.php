@@ -2,7 +2,7 @@
 /**
  * Plugin Name: RingoPet Pedido
  * Description: Lectura de un pedido para la página "Gracias" de Astro (/pedido-recibido/), medios de pago para /finalizar-compra/ y alta de cuenta para pedidos de invitado. La Store API (wc/store/v1/order) no trae medio de pago, número de pedido ni fecha/turno de entrega: este endpoint sí. Además manda todas las vueltas de pago (incluida Mercado Pago) a /pedido-recibido/ en vez de la página de WordPress.
- * Version: 1.3.0
+ * Version: 1.3.1
  * Author: Fluxa
  * Requires Plugins: woocommerce
  * Text Domain: ringopet-pedido
@@ -178,7 +178,14 @@ final class RingoPet_Pedido {
 				'permission_callback' => '__return_true',
 				'callback'            => array( __CLASS__, 'responder_pedido' ),
 				'args'                => array(
-					'id'  => array( 'validate_callback' => 'is_numeric' ),
+					// OJO: no usar 'is_numeric' directo. WordPress le pasa 3 argumentos al validador
+					// y en PHP 8 las funciones nativas no aceptan argumentos de más: tira un error
+					// fatal antes de llegar a responder_pedido() y la respuesta sale vacía.
+					'id'  => array(
+						'validate_callback' => function ( $valor ) {
+							return is_numeric( $valor );
+						},
+					),
 					'key' => array( 'required' => true ),
 				),
 			)

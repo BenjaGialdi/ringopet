@@ -2,7 +2,7 @@
 /**
  * Plugin Name: RingoPet Cuenta
  * Description: "Mi cuenta" para Astro (/mi-cuenta/...): sesión, pedidos, direcciones, datos y recuperación de contraseña, todo con las cookies nativas de WordPress. Independiente de ringopet-pedido y ringopet-entrega (se puede desactivar sin afectarlos).
- * Version: 1.0.0
+ * Version: 1.0.1
  * Author: Fluxa
  * Requires Plugins: woocommerce
  * Text Domain: ringopet-cuenta
@@ -181,9 +181,14 @@ final class RingoPet_Cuenta {
 
 	public static function sesion() {
 		self::sin_cache();
-		if ( ! is_user_logged_in() ) {
+		// No usar is_user_logged_in(): en la API REST, WordPress trata como invitado a
+		// cualquiera que no mande el nonce (rest_cookie_check_errors), y este endpoint es
+		// justamente el que entrega el nonce. Se valida la cookie de sesión directamente.
+		$id_usuario = wp_validate_auth_cookie( '', 'logged_in' );
+		if ( ! $id_usuario ) {
 			return rest_ensure_response( array( 'sesion' => false ) );
 		}
+		wp_set_current_user( $id_usuario );
 		$usuario = wp_get_current_user();
 		return rest_ensure_response( array(
 			'sesion' => true,
@@ -238,6 +243,16 @@ final class RingoPet_Cuenta {
 		if ( ! self::verificar_limite( $clave_ip ) || ! self::verificar_limite( $clave_usuario ) ) {
 			return new WP_Error( 'ringopet_demasiados_intentos', 'Demasiados intentos. Probá de nuevo en unos minutos.', array( 'status' => 429 ) );
 		}
+
+		// El nonce depende del token de sesión que viaja en la cookie logged_in. En este
+		// mismo pedido la cookie recién se está enviando al navegador y $_COOKIE todavía no
+		// la tiene: se copia acá para que el nonce que se devuelve sea válido después.
+		add_action(
+			'set_logged_in_cookie',
+			function ( $cookie ) {
+				$_COOKIE[ LOGGED_IN_COOKIE ] = $cookie;
+			}
+		);
 
 		$resultado = wp_signon( array(
 			'user_login'    => $usuario,
