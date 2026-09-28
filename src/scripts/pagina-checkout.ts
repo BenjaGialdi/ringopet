@@ -4,16 +4,23 @@
  * devuelve un error de fecha/turno, vuelve a pedir la disponibilidad y
  * marca el campo. Todos los avisos (mínimo de compra, cupones, stock,
  * errores del pago) son los que manda la Store API, nada escrito a mano.
+ * Siempre paga como invitado (create_account: false): "pago como invitado"
+ * ya está activo en WooCommerce, y wp-plugin/ringopet-pedido asigna el
+ * pedido a una cuenta existente o crea una nueva después, sin sesión.
  */
 import flatpickr from 'flatpickr';
 import type { Instance as InstanciaFlatpickr } from 'flatpickr/dist/types/instance';
 import { Spanish } from 'flatpickr/dist/l10n/es.js';
 import 'flatpickr/dist/flatpickr.min.css';
+import '../styles/flatpickr-marca.css';
 import { obtenerCarrito, actualizarCliente } from '../lib/tienda/carrito';
-import { pagar, obtenerDisponibilidadEntrega, obtenerTitulosMediosPago, obtenerBorradorCheckout, actualizarMedioDePago } from '../lib/tienda/checkout';
+import { pagar, obtenerDisponibilidadEntrega, obtenerMediosDePago, actualizarMedioDePago } from '../lib/tienda/checkout';
+import { leerCarritoCache, leerMediosPagoCache } from '../lib/tienda/cache-navegador';
 import { ErrorApi } from '../lib/tienda/api-navegador';
 import { formatearPrecio } from '../lib/moneda';
-import type { Carrito, DireccionCarrito, Disponibilidad, DiaEntrega } from '../lib/tienda/tipos';
+import type { Carrito, DireccionCarrito, Disponibilidad, DiaEntrega, RespuestaMediosPago } from '../lib/tienda/tipos';
+
+const ICONO_BANCO = `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 21h18M4 21V10M20 21V10M3 10l9-6 9 6M6 10v11M10 10v11M14 10v11M18 10v11" /></svg>`;
 
 interface EstadoCheckout {
   disponibilidad: Disponibilidad | null;
@@ -77,6 +84,7 @@ function pintarResumenes(carrito: Carrito) {
 }
 
 export function iniciarPaginaCheckout() {
+  const esqueleto = document.querySelector<HTMLElement>('[data-checkout-esqueleto]');
   const form = document.querySelector<HTMLFormElement>('[data-form-checkout]');
   const seccionVacio = document.querySelector<HTMLElement>('[data-checkout-vacio]');
   const seccionForm = document.querySelector<HTMLElement>('[data-checkout-form]');
@@ -84,6 +92,7 @@ export function iniciarPaginaCheckout() {
   const selectTurno = document.querySelector<HTMLSelectElement>('[data-select-turno]');
   const notaEl = document.querySelector<HTMLElement>('[data-nota-entrega]');
   const pagoEl = document.querySelector<HTMLElement>('[data-medios-pago]');
+  const privacidadEl = document.querySelector<HTMLElement>('[data-texto-privacidad]');
   const erroresEl = document.querySelector<HTMLElement>('[data-checkout-errores]');
   const botonesPagar = document.querySelectorAll<HTMLButtonElement>('[data-boton-pagar], [data-boton-pagar-escritorio]');
   if (!form || !seccionVacio || !seccionForm || !inputFecha || !selectTurno) return;
@@ -92,6 +101,10 @@ export function iniciarPaginaCheckout() {
 
   const estado: EstadoCheckout = { disponibilidad: null, diaElegido: null };
   let calendario: InstanciaFlatpickr | null = null;
+
+  function ocultarEsqueleto() {
+    if (esqueleto) esqueleto.hidden = true;
+  }
 
   function mostrarAvisosCarrito(carrito: Carrito) {
     if (!erroresEl) return;
@@ -103,19 +116,36 @@ export function iniciarPaginaCheckout() {
     botonesPagar.forEach((b) => b.toggleAttribute('disabled', bloqueado));
   }
 
-  function pintarMediosDePago(carrito: Carrito, titulosPago: Record<string, string>, elegido?: string) {
+  function pintarMediosDePago(carrito: Carrito, datosPago: RespuestaMediosPago, elegido?: string) {
+    if (privacidadEl) privacidadEl.innerHTML = datosPago.texto_privacidad ?? '';
     if (!pagoEl) return;
+    const valorElegido = elegido ?? carrito.payment_methods[0];
     pagoEl.innerHTML = carrito.payment_methods
-      .map(
-        (id) => `
-          <label class="flex min-h-11 cursor-pointer items-center gap-3 rounded-lg border-2 border-borde px-4 has-checked:border-primario">
-            <input type="radio" name="payment_method" value="${id}" class="h-4 w-4 accent-primario" ${id === (elegido ?? carrito.payment_methods[0]) ? 'checked' : ''} required />
-            ${titulosPago[id] ?? id}
-          </label>`,
-      )
+      .map((id) => {
+        const medio = datosPago.medios[id];
+        const icono = id === 'bacs' ? ICONO_BANCO : (medio?.icono ?? '');
+        const marcado = id === valorElegido;
+        return `
+          <div class="rounded-lg border-2 ${marcado ? 'border-primario' : 'border-borde'}" data-medio-pago="${id}">
+            <label class="flex min-h-11 cursor-pointer items-center gap-3 px-4 py-2">
+              <input type="radio" name="payment_method" value="${id}" class="h-4 w-4 accent-primario" ${marcado ? 'checked' : ''} required />
+              <span class="shrink-0 text-texto-suave">${icono}</span>
+              <span class="font-medium">${medio?.titulo ?? id}</span>
+            </label>
+            ${medio?.descripcion ? `<div class="border-t border-borde px-4 py-2 text-sm text-texto-suave" data-descripcion-pago ${marcado ? '' : 'hidden'}>${medio.descripcion}</div>` : ''}
+          </div>`;
+      })
       .join('');
+
     pagoEl.querySelectorAll<HTMLInputElement>('input[name="payment_method"]').forEach((input) => {
       input.addEventListener('change', async () => {
+        pagoEl!.querySelectorAll<HTMLElement>('[data-medio-pago]').forEach((fila) => {
+          const activo = fila.dataset.medioPago === input.value;
+          fila.classList.toggle('border-primario', activo);
+          fila.classList.toggle('border-borde', !activo);
+          const descripcion = fila.querySelector<HTMLElement>('[data-descripcion-pago]');
+          if (descripcion) descripcion.hidden = !activo;
+        });
         try {
           const carritoActualizado = await actualizarMedioDePago(input.value);
           pintarResumenes(carritoActualizado);
@@ -226,12 +256,13 @@ export function iniciarPaginaCheckout() {
 
     try {
       await actualizarCliente(direccion);
-      const borrador = await obtenerBorradorCheckout();
       const respuesta = await pagar({
         billing_address: direccion,
         shipping_address: direccion,
         payment_method: metodoPago as 'bacs' | 'woo-mercado-pago-basic',
-        create_account: borrador.customer_id === 0,
+        // "Pago como invitado" ya está activo en Woo: siempre false. wp-plugin/ringopet-pedido
+        // asigna el pedido a una cuenta existente o crea una nueva después, sin sesión.
+        create_account: false,
         customer_note: (form.querySelector<HTMLTextAreaElement>('[name="customer_note"]')?.value ?? '').trim(),
         extensions: {
           'order-delivery-date': {
@@ -266,19 +297,55 @@ export function iniciarPaginaCheckout() {
     } finally {
       botonesPagar.forEach((b) => {
         b.removeAttribute('disabled');
-        b.textContent = 'Pagar pedido';
+        b.textContent = 'Realizar pedido';
       });
     }
   });
 
+  function precargarDireccion(carrito: Carrito) {
+    const direccion = carrito.shipping_address?.first_name ? carrito.shipping_address : carrito.billing_address;
+    if (!direccion) return;
+    (['first_name', 'last_name', 'address_1', 'address_2', 'city', 'postcode', 'phone'] as const).forEach((campo) => {
+      const input = form!.querySelector<HTMLInputElement | HTMLSelectElement>(`[name="${campo}"]`);
+      const valor = direccion[campo];
+      if (input && valor && !input.value) input.value = valor;
+    });
+    const email = carrito.billing_address?.email;
+    const inputEmail = form!.querySelector<HTMLInputElement>('[name="email"]');
+    if (inputEmail && email && !inputEmail.value) inputEmail.value = email;
+  }
+
   async function iniciar() {
-    let carrito: Carrito;
-    try {
-      carrito = await obtenerCarrito();
-    } catch {
-      elVacio.textContent = 'No pudimos cargar tu carrito. Probá de nuevo en un momento.';
-      elVacio.hidden = false;
-      elForm.hidden = true;
+    // Se pinta al instante con la última copia conocida (sessionStorage). Si no hay
+    // ninguna (primera visita), se ve el esqueleto en vez de un espacio vacío.
+    const cacheCarrito = leerCarritoCache();
+    const cacheMedios = leerMediosPagoCache();
+    if (cacheCarrito && cacheCarrito.items.length > 0) {
+      ocultarEsqueleto();
+      elForm.hidden = false;
+      pintarResumenes(cacheCarrito);
+      mostrarAvisosCarrito(cacheCarrito);
+      habilitarPago(cacheCarrito);
+      precargarDireccion(cacheCarrito);
+      if (cacheMedios) pintarMediosDePago(cacheCarrito, cacheMedios);
+    }
+
+    // Carrito, disponibilidad de entrega y medios de pago: los tres pedidos en paralelo,
+    // apenas carga la página (no uno atrás del otro).
+    const [carrito, disponibilidad, medios] = await Promise.all([
+      obtenerCarrito().catch(() => null),
+      obtenerDisponibilidadEntrega().catch(() => null),
+      obtenerMediosDePago().catch(() => null),
+    ]);
+
+    ocultarEsqueleto();
+
+    if (!carrito) {
+      if (!cacheCarrito) {
+        elVacio.textContent = 'No pudimos cargar tu carrito. Probá de nuevo en un momento.';
+        elVacio.hidden = false;
+        elForm.hidden = true;
+      }
       return;
     }
 
@@ -290,27 +357,16 @@ export function iniciarPaginaCheckout() {
     elVacio.hidden = true;
     elForm.hidden = false;
 
-    const [disponibilidad, titulosPago] = await Promise.all([
-      obtenerDisponibilidadEntrega().catch(() => null),
-      obtenerTitulosMediosPago().catch(() => ({}) as Record<string, string>),
-    ]);
-
     pintarResumenes(carrito);
     mostrarAvisosCarrito(carrito);
     habilitarPago(carrito);
-    pintarMediosDePago(carrito, titulosPago);
+    precargarDireccion(carrito);
 
-    // Precarga lo que ya sabe WooCommerce del cliente (sesión iniciada o dirección guardada).
-    const direccion = carrito.shipping_address?.first_name ? carrito.shipping_address : carrito.billing_address;
-    if (direccion) {
-      (['first_name', 'last_name', 'address_1', 'address_2', 'city', 'postcode', 'phone'] as const).forEach((campo) => {
-        const input = form!.querySelector<HTMLInputElement | HTMLSelectElement>(`[name="${campo}"]`);
-        const valor = direccion[campo];
-        if (input && valor) input.value = valor;
-      });
-      const email = carrito.billing_address?.email;
-      const inputEmail = form!.querySelector<HTMLInputElement>('[name="email"]');
-      if (inputEmail && email) inputEmail.value = email;
+    const medioElegido = form!.querySelector<HTMLInputElement>('input[name="payment_method"]:checked')?.value;
+    if (medios) {
+      pintarMediosDePago(carrito, medios, medioElegido);
+    } else if (cacheMedios) {
+      pintarMediosDePago(carrito, cacheMedios, medioElegido);
     }
 
     if (disponibilidad) {

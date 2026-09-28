@@ -1,8 +1,10 @@
 ---
 import Base from '../../layouts/Base.astro';
+import PasosCompra from '../../components/PasosCompra.astro';
 ---
 
 <Base titulo="Pedido recibido" noindex>
+  <PasosCompra paso={3} />
   <section class="contenedor py-8">
     <p data-gracias-cargando class="py-16 text-center text-texto-suave">Buscando tu pedido...</p>
 

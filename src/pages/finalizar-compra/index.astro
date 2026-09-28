@@ -1,5 +1,6 @@
 ---
 import Base from '../../layouts/Base.astro';
+import PasosCompra from '../../components/PasosCompra.astro';
 
 // PENDIENTE (regla "Astro solo lee de Woo", ver CLAUDE.md): esta lista se relevó
 // del HTML del checkout clásico de WooCommerce, pero no encontré de dónde la arma
@@ -20,8 +21,22 @@ const localidades = [
 ---
 
 <Base titulo="Finalizar compra" noindex>
+  <PasosCompra paso={2} />
   <section class="contenedor py-8">
     <h1 class="text-3xl sm:text-4xl">Finalizar compra</h1>
+
+    <div data-checkout-esqueleto class="mt-6 grid animate-pulse gap-8 lg:grid-cols-[1fr_380px]" aria-hidden="true">
+      <div class="space-y-4">
+        <div class="h-4 w-32 rounded bg-fondo-suave"></div>
+        <div class="grid gap-4 sm:grid-cols-2">
+          <div class="h-11 rounded-lg bg-fondo-suave"></div>
+          <div class="h-11 rounded-lg bg-fondo-suave"></div>
+          <div class="h-11 rounded-lg bg-fondo-suave"></div>
+          <div class="h-11 rounded-lg bg-fondo-suave"></div>
+        </div>
+      </div>
+      <div class="h-64 rounded-xl bg-fondo-suave"></div>
+    </div>
 
     <p data-checkout-vacio class="py-16 text-center text-texto-suave" hidden>
       Tu carrito está vacío. <a href="/" class="text-primario-oscuro underline underline-offset-2">Ver productos</a>
@@ -52,19 +67,19 @@ const localidades = [
           <div class="mt-3 grid gap-4 sm:grid-cols-2">
             <div data-campo="first_name">
               <label for="first_name" class="text-sm font-medium">Nombre *</label>
-              <input id="first_name" name="first_name" type="text" required class="mt-1 min-h-11 w-full rounded-lg border border-borde px-3" />
+              <input id="first_name" name="first_name" type="text" autocomplete="given-name" required class="mt-1 min-h-11 w-full rounded-lg border border-borde px-3" />
             </div>
             <div data-campo="last_name">
               <label for="last_name" class="text-sm font-medium">Apellido *</label>
-              <input id="last_name" name="last_name" type="text" required class="mt-1 min-h-11 w-full rounded-lg border border-borde px-3" />
+              <input id="last_name" name="last_name" type="text" autocomplete="family-name" required class="mt-1 min-h-11 w-full rounded-lg border border-borde px-3" />
             </div>
             <div data-campo="phone">
               <label for="phone" class="text-sm font-medium">Teléfono *</label>
-              <input id="phone" name="phone" type="tel" required class="mt-1 min-h-11 w-full rounded-lg border border-borde px-3" />
+              <input id="phone" name="phone" type="tel" autocomplete="tel" required class="mt-1 min-h-11 w-full rounded-lg border border-borde px-3" />
             </div>
             <div data-campo="email">
               <label for="email" class="text-sm font-medium">Correo electrónico *</label>
-              <input id="email" name="email" type="email" required class="mt-1 min-h-11 w-full rounded-lg border border-borde px-3" />
+              <input id="email" name="email" type="email" autocomplete="email" required class="mt-1 min-h-11 w-full rounded-lg border border-borde px-3" />
             </div>
           </div>
         </section>
@@ -72,24 +87,24 @@ const localidades = [
         <section>
           <h2 class="text-xl">Entrega</h2>
           <div class="mt-3 grid gap-4 sm:grid-cols-2">
-            <div class="sm:col-span-2" data-campo="address_1">
+            <div data-campo="address_1">
               <label for="address_1" class="text-sm font-medium">Calle y número *</label>
-              <input id="address_1" name="address_1" type="text" required class="mt-1 min-h-11 w-full rounded-lg border border-borde px-3" />
+              <input id="address_1" name="address_1" type="text" autocomplete="address-line1" required class="mt-1 min-h-11 w-full rounded-lg border border-borde px-3" />
             </div>
             <div data-campo="address_2">
               <label for="address_2" class="text-sm font-medium">Piso, depto o barrio cerrado (opcional)</label>
-              <input id="address_2" name="address_2" type="text" class="mt-1 min-h-11 w-full rounded-lg border border-borde px-3" />
+              <input id="address_2" name="address_2" type="text" autocomplete="address-line2" class="mt-1 min-h-11 w-full rounded-lg border border-borde px-3" />
             </div>
             <div data-campo="city">
               <label for="city" class="text-sm font-medium">Localidad *</label>
-              <select id="city" name="city" required class="mt-1 min-h-11 w-full rounded-lg border border-borde px-3">
+              <select id="city" name="city" autocomplete="address-level2" required class="mt-1 min-h-11 w-full rounded-lg border border-borde px-3">
                 <option value="">Elegí tu localidad</option>
                 {localidades.map((loc) => <option value={loc.valor}>{loc.texto}</option>)}
               </select>
             </div>
             <div data-campo="postcode">
               <label for="postcode" class="text-sm font-medium">Código postal *</label>
-              <input id="postcode" name="postcode" type="text" required class="mt-1 min-h-11 w-full rounded-lg border border-borde px-3" />
+              <input id="postcode" name="postcode" type="text" autocomplete="postal-code" required class="mt-1 min-h-11 w-full rounded-lg border border-borde px-3" />
             </div>
           </div>
         </section>
@@ -99,11 +114,11 @@ const localidades = [
           <div class="mt-3 grid gap-4 sm:grid-cols-2">
             <div data-campo="fecha">
               <label for="fecha-entrega" class="text-sm font-medium">Fecha de entrega *</label>
-              <input id="fecha-entrega" data-input-fecha type="text" placeholder="Elegí una fecha" readonly required class="mt-1 min-h-11 w-full rounded-lg border border-borde bg-fondo px-3" />
+              <input id="fecha-entrega" data-input-fecha type="text" autocomplete="off" placeholder="Elegí una fecha" readonly required class="mt-1 min-h-11 w-full rounded-lg border border-borde bg-fondo px-3" />
             </div>
             <div data-campo="turno">
               <label for="turno-entrega" class="text-sm font-medium">Turno de entrega *</label>
-              <select id="turno-entrega" data-select-turno required disabled class="mt-1 min-h-11 w-full rounded-lg border border-borde px-3 disabled:bg-fondo-suave disabled:text-texto-suave">
+              <select id="turno-entrega" data-select-turno autocomplete="off" required disabled class="mt-1 min-h-11 w-full rounded-lg border border-borde px-3 disabled:bg-fondo-suave disabled:text-texto-suave">
                 <option value="">Elegí un turno</option>
               </select>
             </div>
@@ -112,8 +127,8 @@ const localidades = [
         </section>
 
         <section>
-          <label for="notas" class="text-xl">Notas del pedido (opcional)</label>
-          <textarea id="notas" name="customer_note" rows="3" class="mt-3 w-full rounded-lg border border-borde px-3 py-2"></textarea>
+          <label for="notas" class="text-sm font-medium">Notas del pedido (opcional)</label>
+          <textarea id="notas" name="customer_note" autocomplete="off" rows="3" class="mt-1 w-full rounded-lg border border-borde px-3 py-2"></textarea>
         </section>
 
         <section>
@@ -123,7 +138,10 @@ const localidades = [
 
         <div data-checkout-errores aria-live="polite" class="space-y-2"></div>
 
-        <button type="submit" data-boton-pagar class="boton w-full disabled:cursor-not-allowed disabled:opacity-50 lg:hidden">Pagar pedido</button>
+        <div>
+          <button type="submit" data-boton-pagar class="boton w-full disabled:cursor-not-allowed disabled:opacity-50 lg:hidden">Realizar pedido</button>
+          <p data-texto-privacidad class="mt-3 text-xs text-texto-suave [&_a]:underline"></p>
+        </div>
       </div>
 
       <aside class="hidden h-fit space-y-5 rounded-xl border border-borde p-5 lg:sticky lg:top-24 lg:block" data-resumen-instancia>
@@ -139,7 +157,7 @@ const localidades = [
           </dl>
         </div>
 
-        <button type="submit" data-boton-pagar-escritorio class="boton w-full disabled:cursor-not-allowed disabled:opacity-50">Pagar pedido</button>
+        <button type="submit" data-boton-pagar-escritorio class="boton w-full disabled:cursor-not-allowed disabled:opacity-50">Realizar pedido</button>
       </aside>
     </form>
   </section>

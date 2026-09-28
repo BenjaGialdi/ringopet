@@ -1,0 +1,47 @@
+---
+/**
+ * Pasos del pago (carrito -> pago -> gracias), con el actual resaltado y los
+ * anteriores como enlace. Se usa en las tres páginas del flujo de compra.
+ */
+interface Props {
+  paso: 1 | 2 | 3;
+}
+
+const { paso } = Astro.props;
+
+const pasos = [
+  { texto: 'Carrito de compra', ruta: '/carrito/' },
+  { texto: 'Finalizar compra', ruta: '/finalizar-compra/' },
+  { texto: 'Pedido completado', ruta: null },
+];
+---
+
+<nav aria-label="Pasos de la compra" class="contenedor pt-6">
+  <ol class="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
+    {
+      pasos.map((p, i) => {
+        const numero = i + 1;
+        const esActual = numero === paso;
+        const esAnterior = numero < paso;
+        return (
+          <li class="flex items-center gap-2">
+            {i > 0 && (
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" class="text-texto-suave" aria-hidden="true" focusable="false">
+                <path d="m9 6 6 6-6 6" />
+              </svg>
+            )}
+            {esAnterior && p.ruta ? (
+              <a href={p.ruta} class="text-primario-oscuro underline underline-offset-2">
+                {p.texto}
+              </a>
+            ) : (
+              <span aria-current={esActual ? 'step' : undefined} class={esActual ? 'font-semibold text-primario-oscuro' : 'text-texto-suave'}>
+                {p.texto}
+              </span>
+            )}
+          </li>
+        );
+      })
+    }
+  </ol>
+</nav>

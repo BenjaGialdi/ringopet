@@ -212,6 +212,18 @@ export interface CuentaBancaria {
   alias: string;
 }
 
+export interface MedioDePago {
+  titulo: string;
+  descripcion: string;
+  /** HTML del ícono (get_icon() de WooCommerce) o vacío — "bacs" usa un ícono propio en Astro. */
+  icono: string;
+}
+
+export interface RespuestaMediosPago {
+  medios: Record<string, MedioDePago>;
+  texto_privacidad: string;
+}
+
 export interface DetallePedido {
   numero: string;
   estado: string;

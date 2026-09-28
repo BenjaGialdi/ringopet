@@ -1,0 +1,79 @@
+/**
+ * Estilos de flatpickr con la marca (nada del tema por defecto): día elegido
+ * y hoy en el naranja de marca, hover en naranja suave, días deshabilitados
+ * en gris claro, bordes redondeados iguales a los campos del formulario.
+ * Se importa después de flatpickr/dist/flatpickr.min.css (que solo aporta el
+ * layout/posicionamiento del calendario) para pisar sus colores.
+ */
+
+.flatpickr-calendar {
+  border-radius: 0.75rem;
+  border: 1px solid var(--c-borde);
+  box-shadow: 0 10px 25px -5px rgb(0 0 0 / 0.1);
+  font-family: var(--fuente-texto);
+}
+.flatpickr-calendar.arrowTop:before,
+.flatpickr-calendar.arrowTop:after {
+  display: none;
+}
+
+.flatpickr-months .flatpickr-month {
+  color: var(--c-texto);
+  fill: var(--c-texto);
+}
+.flatpickr-current-month .flatpickr-monthDropdown-months,
+.flatpickr-current-month input.cur-year {
+  color: var(--c-texto);
+  font-weight: 600;
+}
+.flatpickr-prev-month,
+.flatpickr-next-month {
+  border-radius: 9999px;
+}
+.flatpickr-prev-month:hover,
+.flatpickr-next-month:hover {
+  background: var(--c-fondo-suave);
+}
+.flatpickr-prev-month svg,
+.flatpickr-next-month svg {
+  fill: var(--c-texto-suave);
+}
+
+span.flatpickr-weekday {
+  color: var(--c-texto-suave);
+  font-weight: 600;
+}
+
+.flatpickr-day {
+  border-radius: 0.5rem;
+  color: var(--c-texto);
+}
+.flatpickr-day:hover,
+.flatpickr-day:focus {
+  background: color-mix(in srgb, var(--c-primario) 15%, white);
+  border-color: transparent;
+}
+.flatpickr-day.today {
+  border-color: var(--c-primario);
+}
+.flatpickr-day.today:hover {
+  background: color-mix(in srgb, var(--c-primario) 15%, white);
+}
+.flatpickr-day.selected,
+.flatpickr-day.selected:hover,
+.flatpickr-day.today.selected {
+  background: var(--c-primario);
+  border-color: var(--c-primario);
+  color: var(--c-sobre-primario);
+}
+.flatpickr-day.flatpickr-disabled,
+.flatpickr-day.flatpickr-disabled:hover,
+.flatpickr-day.prevMonthDay,
+.flatpickr-day.nextMonthDay {
+  color: var(--c-borde);
+  background: transparent;
+  cursor: not-allowed;
+}
+.flatpickr-day.flatpickr-disabled:hover {
+  background: transparent;
+}
