@@ -2,7 +2,7 @@
 /**
  * Plugin Name: RingoPet Entrega
  * Description: Fecha y turno de entrega para el pago hecho en Astro. Usa las reglas y la configuración de Order Delivery Date Lite (ORDDD), así todo sigue igual: mismos días, turnos, anticipación, feriados, cupos y los mismos datos guardados en el pedido.
- * Version: 1.0.0
+ * Version: 1.1.0
  * Author: Fluxa
  * Requires Plugins: woocommerce
  * Text Domain: ringopet-entrega
@@ -31,12 +31,32 @@ final class RingoPet_Entrega {
 
 	const ESPACIO = 'ringopet/v1';
 	const MAX_DIAS_A_REVISAR = 60;
+	const CACHE_CLAVE        = 'ringopet_entrega_disponibilidad';
+	const CACHE_SEGUNDOS     = 180; // 3 minutos. Al pagar se valida siempre sin caché.
 
 	public static function iniciar() {
 		add_action( 'rest_api_init', array( __CLASS__, 'registrar_ruta' ) );
 		// Prioridad 5: corre antes que ORDDD (10), así un turno vencido corta antes de guardar nada.
 		add_action( 'woocommerce_store_api_checkout_update_order_from_request', array( __CLASS__, 'validar_pedido' ), 5, 2 );
 		add_action( 'woocommerce_store_api_checkout_order_processed', array( __CLASS__, 'sincronizar_repartos' ), 20 );
+
+		// La caché se borra cuando entra un pedido (cambian los cupos) o se tocan los ajustes de ORDDD.
+		add_action( 'woocommerce_store_api_checkout_order_processed', array( __CLASS__, 'borrar_cache' ) );
+		add_action( 'woocommerce_checkout_order_processed', array( __CLASS__, 'borrar_cache' ) );
+		add_action( 'woocommerce_new_order', array( __CLASS__, 'borrar_cache' ) );
+		add_action( 'woocommerce_order_status_cancelled', array( __CLASS__, 'borrar_cache' ) );
+		add_action( 'updated_option', array( __CLASS__, 'borrar_cache_si_es_orddd' ) );
+		add_action( 'added_option', array( __CLASS__, 'borrar_cache_si_es_orddd' ) );
+	}
+
+	public static function borrar_cache() {
+		delete_transient( self::CACHE_CLAVE );
+	}
+
+	public static function borrar_cache_si_es_orddd( $opcion ) {
+		if ( is_string( $opcion ) && 0 === strpos( $opcion, 'orddd_' ) ) {
+			self::borrar_cache();
+		}
 	}
 
 	/* ------------------------------------------------------------------ */
@@ -60,13 +80,19 @@ final class RingoPet_Entrega {
 			return new WP_Error( 'ringopet_sin_orddd', 'Order Delivery Date Lite no está activo.', array( 'status' => 503 ) );
 		}
 
-		// Nunca cachear: depende de la hora y de los cupos.
+		// El navegador y LiteSpeed nunca la cachean: la caché corta (3 min) vive en WordPress y se borra al entrar un pedido.
 		if ( ! headers_sent() ) {
 			nocache_headers();
 		}
 		do_action( 'litespeed_control_set_nocache', 'ringopet entrega' );
 
-		$respuesta = rest_ensure_response( self::disponibilidad() );
+		$datos = get_transient( self::CACHE_CLAVE );
+		if ( ! is_array( $datos ) ) {
+			$datos = self::disponibilidad();
+			set_transient( self::CACHE_CLAVE, $datos, self::CACHE_SEGUNDOS );
+		}
+
+		$respuesta = rest_ensure_response( $datos );
 		$respuesta->header( 'Cache-Control', 'no-store, max-age=0' );
 		return $respuesta;
 	}
