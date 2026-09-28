@@ -199,10 +199,20 @@ export interface Disponibilidad {
 
 export interface ItemPedido {
   nombre: string;
+  variacion: string;
   cantidad: number;
+  precio_unitario: string;
   total: string;
   imagen: string | null;
   permalink: string | null;
+}
+
+export interface DireccionPedido {
+  nombre: string;
+  telefono: string;
+  direccion: string;
+  localidad: string;
+  cp: string;
 }
 
 export interface CuentaBancaria {
@@ -229,11 +239,21 @@ export interface DetallePedido {
   estado: string;
   estado_label: string;
   fecha: string;
+  email: string;
   metodo_pago: string;
   metodo_pago_titulo: string;
+  metodo_pago_descripcion: string;
+  items: ItemPedido[];
+  subtotal: string;
+  descuento: string;
+  envio: string | null;
+  impuestos: string;
   total: string;
   moneda: string;
-  items: ItemPedido[];
+  nota_cliente: string;
+  cupones: string[];
   entrega: { etiqueta_fecha: string; fecha: string; etiqueta_turno: string; turno: string } | null;
   transferencia: CuentaBancaria | null;
+  facturacion: DireccionPedido | null;
+  envio_direccion: DireccionPedido | null;
 }

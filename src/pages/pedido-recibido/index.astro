@@ -14,28 +14,51 @@ import PasosCompra from '../../components/PasosCompra.astro';
       <a href="/" class="boton mt-6 inline-block">Ir al inicio</a>
     </div>
 
-    <div data-gracias-contenido hidden class="mx-auto max-w-2xl">
+    <div data-gracias-contenido hidden class="mx-auto max-w-3xl">
       <div class="text-center" data-reveal>
         <svg viewBox="0 0 24 24" width="56" height="56" fill="none" stroke="currentColor" stroke-width="1.5" class="mx-auto text-primario-oscuro" aria-hidden="true" focusable="false">
           <circle cx="12" cy="12" r="10" /><path d="m8 12 3 3 5-6" />
         </svg>
         <h1 class="mt-3 text-3xl sm:text-4xl">¡Gracias por tu compra!</h1>
-        <p class="mt-2 text-texto-suave">Pedido <strong data-numero></strong> · <span data-estado></span></p>
+        <p class="mt-2 text-texto-suave">Pedido <strong data-numero></strong> · <span data-fecha></span> · <span data-estado></span></p>
+        <p class="mt-1 text-sm text-texto-suave">Te escribimos a <strong data-email></strong></p>
       </div>
 
       <div data-entrega hidden class="mt-8 rounded-xl border border-borde p-5">
-        <p><span data-etiqueta-fecha class="font-medium"></span>: <span data-valor-fecha></span></p>
+        <h2 class="text-lg">Entrega</h2>
+        <p class="mt-2"><span data-etiqueta-fecha class="font-medium"></span>: <span data-valor-fecha></span></p>
         <p class="mt-1"><span data-etiqueta-turno class="font-medium"></span>: <span data-valor-turno></span></p>
+      </div>
+
+      <div class="mt-6 grid gap-6 sm:grid-cols-2">
+        <div class="rounded-xl border border-borde p-5">
+          <h2 class="text-lg">Datos de facturación</h2>
+          <dl class="mt-2 space-y-1 text-sm text-texto-suave" data-facturacion></dl>
+        </div>
+        <div data-bloque-envio class="rounded-xl border border-borde p-5">
+          <h2 class="text-lg">Dirección de envío</h2>
+          <dl class="mt-2 space-y-1 text-sm text-texto-suave" data-envio-direccion></dl>
+        </div>
       </div>
 
       <div class="mt-6 rounded-xl border border-borde p-5">
         <h2 class="text-lg">Tu pedido</h2>
         <ul data-items class="mt-2 divide-y divide-borde"></ul>
-        <div class="mt-3 flex justify-between border-t border-borde pt-3 text-lg font-semibold">
-          <span>Total</span>
-          <span data-total></span>
-        </div>
-        <p class="mt-2 text-sm text-texto-suave">Medio de pago: <span data-metodo-pago></span></p>
+        <dl class="mt-3 space-y-2 border-t border-borde pt-3 text-sm">
+          <div class="flex justify-between"><dt>Subtotal</dt><dd data-subtotal></dd></div>
+          <div class="flex justify-between" data-fila-descuento hidden><dt>Descuento</dt><dd data-descuento class="text-primario-oscuro"></dd></div>
+          <div class="flex justify-between" data-fila-envio hidden><dt>Envío</dt><dd data-envio></dd></div>
+          <div class="flex justify-between" data-fila-impuestos hidden><dt>Impuestos</dt><dd data-impuestos></dd></div>
+          <div class="flex justify-between text-base font-semibold text-texto"><dt>Total</dt><dd data-total></dd></div>
+        </dl>
+        <p class="mt-2 text-sm text-texto-suave" data-fila-cupones hidden>Cupón: <span data-cupones></span></p>
+        <p class="mt-3 border-t border-borde pt-3 text-sm">
+          <span class="font-medium">Medio de pago:</span> <span data-metodo-pago></span>
+        </p>
+        <p class="mt-1 text-sm text-texto-suave" data-metodo-pago-descripcion></p>
+        <p class="mt-3 border-t border-borde pt-3 text-sm text-texto-suave" data-fila-nota hidden>
+          <span class="font-medium">Notas:</span> <span data-nota></span>
+        </p>
       </div>
 
       <div data-transferencia hidden class="mt-6 rounded-xl border-2 border-primario bg-fondo-suave p-5">

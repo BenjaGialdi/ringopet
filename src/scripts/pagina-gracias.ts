@@ -2,7 +2,16 @@
 import { obtenerPedido } from '../lib/tienda/checkout';
 import { formatearPrecio } from '../lib/moneda';
 import { enlaceWhatsapp } from '../lib/url';
-import type { DetallePedido } from '../lib/tienda/tipos';
+import type { DetallePedido, DireccionPedido } from '../lib/tienda/tipos';
+
+function pintarDireccion(el: HTMLElement, direccion: DireccionPedido) {
+  el.innerHTML = `
+    <div>${direccion.nombre}</div>
+    ${direccion.telefono ? `<div>${direccion.telefono}</div>` : ''}
+    <div>${direccion.direccion}</div>
+    <div>${direccion.localidad}${direccion.cp ? `, CP ${direccion.cp}` : ''}</div>
+  `;
+}
 
 export function iniciarPaginaGracias() {
   const cargando = document.querySelector<HTMLElement>('[data-gracias-cargando]');
@@ -21,10 +30,76 @@ export function iniciarPaginaGracias() {
   }
 
   function pintar(pedido: DetallePedido) {
+    const p = (moneda: string) => formatearPrecio(moneda, 2, '$ ');
+
     contenido!.querySelector('[data-numero]')!.textContent = `#${pedido.numero}`;
     contenido!.querySelector('[data-estado]')!.textContent = pedido.estado_label;
-    contenido!.querySelector('[data-total]')!.textContent = formatearPrecio(pedido.total, 2, '$ ');
+    contenido!.querySelector('[data-email]')!.textContent = pedido.email;
+    const fechaEl = contenido!.querySelector('[data-fecha]');
+    if (fechaEl) {
+      fechaEl.textContent = pedido.fecha ? new Date(pedido.fecha).toLocaleDateString('es-AR', { day: 'numeric', month: 'long', year: 'numeric' }) : '';
+    }
+
+    contenido!.querySelector('[data-subtotal]')!.textContent = p(pedido.subtotal);
+    contenido!.querySelector('[data-total]')!.textContent = p(pedido.total);
     contenido!.querySelector('[data-metodo-pago]')!.textContent = pedido.metodo_pago_titulo;
+
+    const descripcionEl = contenido!.querySelector<HTMLElement>('[data-metodo-pago-descripcion]');
+    if (descripcionEl) {
+      descripcionEl.hidden = !pedido.metodo_pago_descripcion;
+      descripcionEl.textContent = pedido.metodo_pago_descripcion;
+    }
+
+    const filaDescuento = contenido!.querySelector<HTMLElement>('[data-fila-descuento]');
+    if (filaDescuento) {
+      const hay = Number(pedido.descuento) > 0;
+      filaDescuento.hidden = !hay;
+      if (hay) contenido!.querySelector('[data-descuento]')!.textContent = `-${p(pedido.descuento)}`;
+    }
+
+    const filaEnvio = contenido!.querySelector<HTMLElement>('[data-fila-envio]');
+    if (filaEnvio) {
+      const hay = pedido.envio !== null;
+      filaEnvio.hidden = !hay;
+      if (hay) {
+        const monto = Number(pedido.envio);
+        contenido!.querySelector('[data-envio]')!.textContent = monto === 0 ? 'Gratis' : p(pedido.envio!);
+      }
+    }
+
+    const filaImpuestos = contenido!.querySelector<HTMLElement>('[data-fila-impuestos]');
+    if (filaImpuestos) {
+      const hay = Number(pedido.impuestos) > 0;
+      filaImpuestos.hidden = !hay;
+      if (hay) contenido!.querySelector('[data-impuestos]')!.textContent = p(pedido.impuestos);
+    }
+
+    const filaCupones = contenido!.querySelector<HTMLElement>('[data-fila-cupones]');
+    if (filaCupones) {
+      const hay = pedido.cupones.length > 0;
+      filaCupones.hidden = !hay;
+      if (hay) contenido!.querySelector('[data-cupones]')!.textContent = pedido.cupones.join(', ');
+    }
+
+    const filaNota = contenido!.querySelector<HTMLElement>('[data-fila-nota]');
+    if (filaNota) {
+      filaNota.hidden = !pedido.nota_cliente;
+      if (pedido.nota_cliente) contenido!.querySelector('[data-nota]')!.textContent = pedido.nota_cliente;
+    }
+
+    const facturacionEl = contenido!.querySelector<HTMLElement>('[data-facturacion]');
+    if (facturacionEl && pedido.facturacion) pintarDireccion(facturacionEl, pedido.facturacion);
+
+    const bloqueEnvio = contenido!.querySelector<HTMLElement>('[data-bloque-envio]');
+    const envioDireccionEl = contenido!.querySelector<HTMLElement>('[data-envio-direccion]');
+    if (bloqueEnvio && envioDireccionEl) {
+      if (pedido.envio_direccion) {
+        bloqueEnvio.hidden = false;
+        pintarDireccion(envioDireccionEl, pedido.envio_direccion);
+      } else {
+        bloqueEnvio.hidden = true;
+      }
+    }
 
     const entregaEl = contenido!.querySelector<HTMLElement>('[data-entrega]');
     if (entregaEl) {
@@ -46,8 +121,11 @@ export function iniciarPaginaGracias() {
           (item) => `
             <li class="flex items-center gap-3 py-3">
               ${item.imagen ? `<img src="${item.imagen}" alt="" width="56" height="56" class="h-14 w-14 shrink-0 rounded-lg border border-borde object-contain p-1" loading="lazy" />` : ''}
-              <span class="min-w-0 flex-1 truncate">${item.cantidad} × ${item.nombre}</span>
-              <span class="shrink-0 font-medium">${formatearPrecio(item.total, 2, '$ ')}</span>
+              <span class="min-w-0 flex-1">
+                <span class="block truncate">${item.cantidad} × ${item.nombre}</span>
+                ${item.variacion ? `<span class="block text-xs text-texto-suave">${item.variacion}</span>` : ''}
+              </span>
+              <span class="shrink-0 font-medium">${p(item.total)}</span>
             </li>`,
         )
         .join('');

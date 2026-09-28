@@ -129,7 +129,7 @@ export function iniciarPaginaCheckout() {
           <div class="rounded-lg border-2 ${marcado ? 'border-primario' : 'border-borde'}" data-medio-pago="${id}">
             <label class="flex min-h-11 cursor-pointer items-center gap-3 px-4 py-2">
               <input type="radio" name="payment_method" value="${id}" class="h-4 w-4 accent-primario" ${marcado ? 'checked' : ''} required />
-              <span class="shrink-0 text-texto-suave">${icono}</span>
+              <span class="flex h-6 shrink-0 items-center text-texto-suave [&_img]:h-6 [&_img]:w-auto [&_svg]:h-6 [&_svg]:w-auto">${icono}</span>
               <span class="font-medium">${medio?.titulo ?? id}</span>
             </label>
             ${medio?.descripcion ? `<div class="border-t border-borde px-4 py-2 text-sm text-texto-suave" data-descripcion-pago ${marcado ? '' : 'hidden'}>${medio.descripcion}</div>` : ''}

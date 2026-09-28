@@ -2,7 +2,7 @@
 /**
  * Plugin Name: RingoPet Pedido
  * Description: Lectura de un pedido para la página "Gracias" de Astro (/pedido-recibido/), medios de pago para /finalizar-compra/ y alta de cuenta para pedidos de invitado. La Store API (wc/store/v1/order) no trae medio de pago, número de pedido ni fecha/turno de entrega: este endpoint sí. Además manda todas las vueltas de pago (incluida Mercado Pago) a /pedido-recibido/ en vez de la página de WordPress.
- * Version: 1.1.0
+ * Version: 1.2.0
  * Author: Fluxa
  * Requires Plugins: woocommerce
  * Text Domain: ringopet-pedido
@@ -127,9 +127,16 @@ final class RingoPet_Pedido {
 			);
 		}
 
+		$texto_privacidad = function_exists( 'wc_get_privacy_policy_text' ) ? wc_get_privacy_policy_text( 'checkout' ) : '';
+		// wc_get_privacy_policy_text() deja el placeholder [privacy_policy] tal cual: hay que
+		// reemplazarlo por el enlace real a la página de privacidad configurada en WordPress.
+		if ( $texto_privacidad && function_exists( 'wc_replace_policy_page_link_placeholders' ) ) {
+			$texto_privacidad = wc_replace_policy_page_link_placeholders( $texto_privacidad );
+		}
+
 		$respuesta = array(
 			'medios'           => $medios,
-			'texto_privacidad' => function_exists( 'wc_get_privacy_policy_text' ) ? wc_get_privacy_policy_text( 'checkout' ) : '',
+			'texto_privacidad' => $texto_privacidad,
 		);
 
 		set_transient( 'ringopet_medios_pago', $respuesta, 5 * MINUTE_IN_SECONDS );
@@ -188,43 +195,125 @@ final class RingoPet_Pedido {
 
 		// hash_equals evita comparar la clave letra por letra (timing attack) y de paso
 		// devuelve el mismo 403 tanto si el pedido no existe como si la clave está mal,
-		// para no revelar qué números de pedido son válidos.
+		// para no revelar qué números de pedido son válidos. No importa si el pedido
+		// quedó asignado a una cuenta o sigue de invitado: la clave alcanza siempre,
+		// con o sin sesión iniciada — igual que la página de "gracias" nativa de Woo.
 		if ( ! $pedido instanceof WC_Order || ! hash_equals( $pedido->get_order_key(), $clave ) ) {
 			return new WP_Error( 'ringopet_pedido_no_encontrado', 'No encontramos ese pedido.', array( 'status' => 403 ) );
 		}
 
-		return rest_ensure_response( self::formatear( $pedido ) );
+		// Antes, un error de PHP acá adentro (por ejemplo una función de la que dependíamos
+		// y no estaba cargada en el contexto de este endpoint) terminaba en una respuesta
+		// 200 con el cuerpo vacío: Astro no tenía forma de saber qué pasó y mostraba "No
+		// encontramos ese pedido", un mensaje engañoso. Envolver todo en try/catch evita el
+		// cuerpo vacío: si algo vuelve a fallar, se ve el motivo real en el log del servidor
+		// y Astro recibe un error explícito (no un 200 vacío disfrazado de "no encontrado").
+		try {
+			return rest_ensure_response( self::formatear( $pedido ) );
+		} catch ( \Throwable $error ) {
+			error_log( 'ringopet-pedido: error al formatear el pedido ' . $pedido->get_id() . ': ' . $error->getMessage() );
+			return new WP_Error( 'ringopet_pedido_error', 'No pudimos preparar los datos del pedido.', array( 'status' => 500 ) );
+		}
 	}
 
 	private static function formatear( WC_Order $pedido ) {
 		$metodo = $pedido->get_payment_method();
 
 		return array(
-			'numero'         => $pedido->get_order_number(),
-			'estado'         => $pedido->get_status(),
-			'estado_label'   => wc_get_order_status_name( $pedido->get_status() ),
-			'fecha'          => wc_rest_prepare_date_response( $pedido->get_date_created() ),
-			'metodo_pago'    => $metodo,
-			'metodo_pago_titulo' => $pedido->get_payment_method_title(),
-			'total'          => self::monto( $pedido->get_total() ),
-			'moneda'         => $pedido->get_currency(),
-			'items'          => self::items( $pedido ),
-			'entrega'        => self::entrega( $pedido ),
-			'transferencia'  => 'bacs' === $metodo ? self::cuenta_bancaria() : null,
+			'numero'                  => $pedido->get_order_number(),
+			'estado'                  => $pedido->get_status(),
+			'estado_label'            => wc_get_order_status_name( $pedido->get_status() ),
+			// Antes usaba wc_rest_prepare_date_response(), de wc-rest-functions.php: en el
+			// contexto de este endpoint (namespace propio, no wc/v3) esa función podía no
+			// estar cargada todavía y tirar un error fatal — de ahí el cuerpo vacío que veía
+			// Benja. Se arma la fecha a mano, sin esa dependencia.
+			'fecha'                   => self::fecha_iso( $pedido->get_date_created() ),
+			'email'                   => $pedido->get_billing_email(),
+			'metodo_pago'             => $metodo,
+			'metodo_pago_titulo'      => $pedido->get_payment_method_title(),
+			'metodo_pago_descripcion' => self::descripcion_medio_pago( $metodo ),
+			'items'                   => self::items( $pedido ),
+			'subtotal'                => self::monto( self::subtotal( $pedido ) ),
+			'descuento'               => self::monto( $pedido->get_total_discount() ),
+			'envio'                   => '' !== $pedido->get_shipping_total() ? self::monto( $pedido->get_shipping_total() ) : null,
+			'impuestos'               => self::monto( $pedido->get_total_tax() ),
+			'total'                   => self::monto( $pedido->get_total() ),
+			'moneda'                  => $pedido->get_currency(),
+			'nota_cliente'            => $pedido->get_customer_note(),
+			'cupones'                 => array_map( function ( $c ) {
+				return $c->get_code();
+			}, array_values( $pedido->get_items( 'coupon' ) ) ),
+			'entrega'                 => self::entrega( $pedido ),
+			'transferencia'           => 'bacs' === $metodo ? self::cuenta_bancaria() : null,
+			'facturacion'             => self::direccion( $pedido, 'billing' ),
+			'envio_direccion'         => self::direccion( $pedido, 'shipping' ),
+		);
+	}
+
+	private static function fecha_iso( $fecha ) {
+		return $fecha instanceof WC_DateTime ? $fecha->date( 'c' ) : null;
+	}
+
+	private static function descripcion_medio_pago( $metodo_id ) {
+		if ( ! $metodo_id || ! function_exists( 'WC' ) || ! WC()->payment_gateways() ) {
+			return '';
+		}
+		$gateways = WC()->payment_gateways()->payment_gateways();
+		return isset( $gateways[ $metodo_id ] ) ? $gateways[ $metodo_id ]->get_description() : '';
+	}
+
+	/** Suma de los subtotales de línea (antes de descuentos), como el "Subtotal" del carrito. */
+	private static function subtotal( WC_Order $pedido ) {
+		$subtotal = 0;
+		foreach ( $pedido->get_items() as $item ) {
+			$subtotal += (float) $item->get_subtotal();
+		}
+		return $subtotal;
+	}
+
+	/**
+	 * Dirección de facturación o envío. Para envío, null si el pedido no tiene una
+	 * dirección de envío cargada (no necesitaba envío, o coincide con facturación y Woo
+	 * no la duplicó) — Astro debe mostrar solo la de facturación en ese caso.
+	 */
+	private static function direccion( WC_Order $pedido, $prefijo ) {
+		$campo = function ( $nombre ) use ( $pedido, $prefijo ) {
+			$metodo = "get_{$prefijo}_{$nombre}";
+			return method_exists( $pedido, $metodo ) ? $pedido->$metodo() : '';
+		};
+
+		$direccion1 = $campo( 'address_1' );
+		if ( 'shipping' === $prefijo && '' === $direccion1 ) {
+			return null;
+		}
+
+		return array(
+			'nombre'    => trim( $campo( 'first_name' ) . ' ' . $campo( 'last_name' ) ),
+			'telefono'  => 'billing' === $prefijo ? $pedido->get_billing_phone() : '',
+			'direccion' => trim( $direccion1 . ' ' . $campo( 'address_2' ) ),
+			'localidad' => $campo( 'city' ),
+			'cp'        => $campo( 'postcode' ),
 		);
 	}
 
 	private static function items( WC_Order $pedido ) {
 		$items = array();
 		foreach ( $pedido->get_items() as $item ) {
-			$producto = $item->get_product();
-			$imagen   = $producto ? wp_get_attachment_image_url( $producto->get_image_id(), 'thumbnail' ) : null;
+			$producto  = $item->get_product();
+			$imagen    = $producto ? wp_get_attachment_image_url( $producto->get_image_id(), 'thumbnail' ) : null;
+			$variacion = array();
+			foreach ( $item->get_formatted_meta_data() as $meta ) {
+				$variacion[] = wp_strip_all_tags( $meta->display_key ) . ': ' . wp_strip_all_tags( $meta->display_value );
+			}
+			$cantidad = $item->get_quantity();
 			$items[]  = array(
-				'nombre'    => $item->get_name(),
-				'cantidad'  => $item->get_quantity(),
-				'total'     => self::monto( $item->get_total() ),
-				'imagen'    => $imagen ?: null,
-				'permalink' => $producto ? $producto->get_permalink() : null,
+				'nombre'          => $item->get_name(),
+				'variacion'       => implode( ' · ', $variacion ),
+				'cantidad'        => $cantidad,
+				'precio_unitario' => self::monto( $cantidad ? $item->get_total() / $cantidad : 0 ),
+				'total'           => self::monto( $item->get_total() ),
+				'imagen'          => $imagen ?: null,
+				'permalink'       => $producto ? $producto->get_permalink() : null,
 			);
 		}
 		return $items;
