@@ -410,17 +410,32 @@ note. Al cerrar sesión (`salir()` en `src/lib/tienda/cuenta.ts`) se borra el
 nonce y la copia del carrito de `sessionStorage`: el carrito de un cliente
 no debería quedar pintado para el siguiente visitante de ese navegador.
 
-**Enlaces de email hacia Astro**: el de "recuperar contraseña" (flujo de
-autoservicio, filtro `retrieve_password_message` de WordPress) se reescribe
-directo a `/mi-cuenta/nueva-clave/?key=&login=`. El de "elegí tu contraseña"
-que manda WooCommerce al crear una cuenta desde el pago
-(`wc_create_new_customer` con contraseña en blanco) apunta al endpoint
+**Enlaces de email hacia Astro**: `POST /cuenta/recuperar` (el "¿Olvidaste
+tu contraseña?" de `/mi-cuenta/recuperar/`) ya no usa `retrieve_password()`
+de WordPress — dispara `do_action('woocommerce_reset_password_notification', ...)`
+directo, así el email sale con la plantilla y el remitente de WooCommerce
+(no los de WordPress) y con el enlace `?key=&id=` que arma Woo (manda el
+id del usuario, no el `login`). El de "elegí tu contraseña" que manda
+WooCommerce al crear una cuenta desde el pago (`wc_create_new_customer` con
+contraseña en blanco) usa el mismo formato. Los dos apuntan al endpoint
 nativo de Mi cuenta — verificado en `prueba.ringopet.com.ar`:
-`/mi-cuenta/lost-password/?key=&login=` (slug en inglés aunque el texto de
+`/mi-cuenta/lost-password/?key=&id=` (slug en inglés aunque el texto de
 WooCommerce esté en castellano) — que ahora es una carpeta propia de Astro
-(`src/pages/mi-cuenta/lost-password/`) y redirige a `/mi-cuenta/nueva-clave/`
-conservando `key` y `login`. `/mi-cuenta/` también detecta esos dos
-parámetros como respaldo, por si algún enlace viejo cae ahí directo.
+(`src/pages/mi-cuenta/lost-password/`) y redirige a
+`/mi-cuenta/nueva-clave/` conservando `key` y `id` (o `login`, según cuál
+mande el enlace). `POST /cuenta/nueva-clave` acepta cualquiera de los dos:
+si viene `id` sin `login`, lo resuelve a `user_login` con `get_userdata()`.
+`/mi-cuenta/` también detecta esos parámetros como respaldo, por si algún
+enlace viejo cae ahí directo.
+
+**Remitente de los emails de WordPress**: `wp_mail_from`/`wp_mail_from_name`
+reemplazan el remitente por defecto ("WordPress <wordpress@dominio>") por
+el de WooCommerce > Ajustes > Correos electrónicos, para que todo salga
+como RingoPet — incluido el respaldo de `retrieve_password_message` (si
+algo distinto de `/mi-cuenta/recuperar/` dispara el flujo nativo de
+WordPress, por ejemplo `wp-login.php` directo), cuyo regex de reemplazo del
+enlace también se corrigió (`action=rp` no siempre va primero en la URL
+que arma WordPress).
 
 **Direcciones**: mismos 7 campos y la misma lista fija de localidades que
 `/finalizar-compra/` (mismo `PENDIENTE`, ver "Regla fija" arriba — hay que
