@@ -2,7 +2,7 @@
 /**
  * Plugin Name: RingoPet Pedido
  * Description: Lectura de un pedido para la página "Gracias" de Astro (/pedido-recibido/), medios de pago para /finalizar-compra/ y alta de cuenta para pedidos de invitado. La Store API (wc/store/v1/order) no trae medio de pago, número de pedido ni fecha/turno de entrega: este endpoint sí. Además manda todas las vueltas de pago (incluida Mercado Pago) a /pedido-recibido/ en vez de la página de WordPress.
- * Version: 1.2.0
+ * Version: 1.3.0
  * Author: Fluxa
  * Requires Plugins: woocommerce
  * Text Domain: ringopet-pedido
@@ -189,29 +189,34 @@ final class RingoPet_Pedido {
 		if ( ! headers_sent() ) {
 			nocache_headers();
 		}
+		// nocache_headers() es de WordPress: evita que el navegador o un proxy genérico
+		// cachee la respuesta, pero LiteSpeed (el servidor de este hosting) tiene su propia
+		// caché de página con su propio mecanismo — hace falta avisarle a él también, aparte
+		// (mismo patrón que ya usa ringopet-entrega en responder_disponibilidad()).
+		do_action( 'litespeed_control_set_nocache', 'ringopet pedido' );
 
-		$pedido = wc_get_order( (int) $peticion['id'] );
-		$clave  = (string) $peticion->get_param( 'key' );
-
-		// hash_equals evita comparar la clave letra por letra (timing attack) y de paso
-		// devuelve el mismo 403 tanto si el pedido no existe como si la clave está mal,
-		// para no revelar qué números de pedido son válidos. No importa si el pedido
-		// quedó asignado a una cuenta o sigue de invitado: la clave alcanza siempre,
-		// con o sin sesión iniciada — igual que la página de "gracias" nativa de Woo.
-		if ( ! $pedido instanceof WC_Order || ! hash_equals( $pedido->get_order_key(), $clave ) ) {
-			return new WP_Error( 'ringopet_pedido_no_encontrado', 'No encontramos ese pedido.', array( 'status' => 403 ) );
-		}
-
-		// Antes, un error de PHP acá adentro (por ejemplo una función de la que dependíamos
-		// y no estaba cargada en el contexto de este endpoint) terminaba en una respuesta
-		// 200 con el cuerpo vacío: Astro no tenía forma de saber qué pasó y mostraba "No
-		// encontramos ese pedido", un mensaje engañoso. Envolver todo en try/catch evita el
-		// cuerpo vacío: si algo vuelve a fallar, se ve el motivo real en el log del servidor
-		// y Astro recibe un error explícito (no un 200 vacío disfrazado de "no encontrado").
+		// Todo el cuerpo en un try/catch: antes, un error de PHP acá adentro (por ejemplo una
+		// función de la que dependíamos y no estaba cargada en el contexto de este endpoint)
+		// terminaba en una respuesta 200 con el cuerpo vacío y sin ninguna pista de qué pasó.
+		// Envolver todo evita ese cuerpo vacío: si algo vuelve a fallar, queda logueado en el
+		// servidor y Astro recibe un error explícito, nunca más un 200 vacío disfrazado de
+		// "no encontrado".
 		try {
+			$pedido = wc_get_order( (int) $peticion['id'] );
+			$clave  = (string) $peticion->get_param( 'key' );
+
+			// hash_equals evita comparar la clave letra por letra (timing attack) y de paso
+			// devuelve el mismo 403 tanto si el pedido no existe como si la clave está mal,
+			// para no revelar qué números de pedido son válidos. No importa si el pedido
+			// quedó asignado a una cuenta o sigue de invitado: la clave alcanza siempre,
+			// con o sin sesión iniciada — igual que la página de "gracias" nativa de Woo.
+			if ( ! $pedido instanceof WC_Order || ! hash_equals( $pedido->get_order_key(), $clave ) ) {
+				return new WP_Error( 'ringopet_pedido_no_encontrado', 'No encontramos ese pedido.', array( 'status' => 403 ) );
+			}
+
 			return rest_ensure_response( self::formatear( $pedido ) );
 		} catch ( \Throwable $error ) {
-			error_log( 'ringopet-pedido: error al formatear el pedido ' . $pedido->get_id() . ': ' . $error->getMessage() );
+			error_log( 'ringopet-pedido: error en /pedido/' . $peticion['id'] . ': ' . $error->getMessage() . ' en ' . $error->getFile() . ':' . $error->getLine() );
 			return new WP_Error( 'ringopet_pedido_error', 'No pudimos preparar los datos del pedido.', array( 'status' => 500 ) );
 		}
 	}
