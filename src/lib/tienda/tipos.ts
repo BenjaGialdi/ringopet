@@ -207,6 +207,23 @@ export interface ItemPedido {
   permalink: string | null;
 }
 
+export interface ProductoAReponer {
+  product_id: number;
+  /** 0 si el producto no es una variación. */
+  variation_id: number;
+  variacion: string;
+  cantidad: number;
+}
+
+export interface RespuestaCancelarPedido {
+  cancelado: boolean;
+  /** Con cancelado: true. */
+  productos?: ProductoAReponer[];
+  /** Con cancelado: false (el pedido ya estaba pagado o en otro estado). */
+  estado?: string;
+  estado_label?: string;
+}
+
 export interface DireccionPedido {
   nombre: string;
   telefono: string;

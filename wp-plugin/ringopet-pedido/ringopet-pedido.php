@@ -2,7 +2,7 @@
 /**
  * Plugin Name: RingoPet Pedido
  * Description: Lectura de un pedido para la página "Gracias" de Astro (/pedido-recibido/), medios de pago para /finalizar-compra/ y alta de cuenta para pedidos de invitado. La Store API (wc/store/v1/order) no trae medio de pago, número de pedido ni fecha/turno de entrega: este endpoint sí. Además manda todas las vueltas de pago (incluida Mercado Pago) a /pedido-recibido/ en vez de la página de WordPress.
- * Version: 1.4.1
+ * Version: 1.5.0
  * Author: Fluxa
  * Requires Plugins: woocommerce
  * Text Domain: ringopet-pedido
@@ -21,6 +21,7 @@ final class RingoPet_Pedido {
 
 	public static function iniciar() {
 		add_action( 'rest_api_init', array( __CLASS__, 'registrar_ruta' ) );
+		add_action( 'rest_api_init', array( __CLASS__, 'registrar_ruta_cancelar' ) );
 		add_action( 'rest_api_init', array( __CLASS__, 'registrar_ruta_medios_pago' ) );
 		add_filter( 'woocommerce_get_checkout_order_received_url', array( __CLASS__, 'redirigir_a_gracias_astro' ), 20, 2 );
 
@@ -228,6 +229,94 @@ final class RingoPet_Pedido {
 		}
 	}
 
+	/* ------------------------------------------------------------------ */
+	/* Cancelar un pedido pendiente (vuelta de Mercado Pago sin pagar)      */
+	/* ------------------------------------------------------------------ */
+
+	/**
+	 * Cuando el cliente cancela el pago en Mercado Pago, MP lo redirige a
+	 * /carrito/?cancel_order=true&order=<clave>&order_id=<id> — una carpeta de Astro, así
+	 * que WooCommerce nunca procesa ese cancel_order (esa lógica vive en el checkout clásico
+	 * de WordPress, que acá no se usa). El pedido queda "pending" para siempre. Este endpoint
+	 * lo cancela desde Astro, con la misma clave que ya protege la lectura del pedido.
+	 */
+	public static function registrar_ruta_cancelar() {
+		register_rest_route(
+			self::ESPACIO,
+			'/pedido/(?P<id>\d+)/cancelar',
+			array(
+				'methods'             => 'POST',
+				'permission_callback' => '__return_true',
+				'callback'            => array( __CLASS__, 'responder_cancelar' ),
+				'args'                => array(
+					'id'  => array(
+						'validate_callback' => function ( $valor ) {
+							return is_numeric( $valor );
+						},
+					),
+					'key' => array( 'required' => true ),
+				),
+			)
+		);
+	}
+
+	public static function responder_cancelar( WP_REST_Request $peticion ) {
+		if ( ! headers_sent() ) {
+			nocache_headers();
+		}
+		do_action( 'litespeed_control_set_nocache', 'ringopet pedido cancelar' );
+
+		try {
+			$pedido = wc_get_order( (int) $peticion['id'] );
+			$clave  = (string) $peticion->get_param( 'key' );
+
+			if ( ! $pedido instanceof WC_Order || ! hash_equals( $pedido->get_order_key(), $clave ) ) {
+				return new WP_Error( 'ringopet_pedido_no_encontrado', 'No encontramos ese pedido.', array( 'status' => 403 ) );
+			}
+
+			// Solo se cancela un pedido pendiente de pago de verdad: si ya está pagado (o en
+			// cualquier otro estado — procesando, completado, cancelado, reembolsado...) no se
+			// toca nada, solo se informa en qué quedó.
+			if ( $pedido->is_paid() || ! in_array( $pedido->get_status(), array( 'pending', 'failed' ), true ) ) {
+				return rest_ensure_response( array(
+					'cancelado'    => false,
+					'estado'       => $pedido->get_status(),
+					'estado_label' => wc_get_order_status_name( $pedido->get_status() ),
+				) );
+			}
+
+			$productos = self::items_para_reponer( $pedido );
+
+			$pedido->update_status( 'cancelled', 'Cancelado: el cliente volvió de Mercado Pago sin completar el pago.' );
+
+			return rest_ensure_response( array(
+				'cancelado' => true,
+				'productos' => $productos,
+			) );
+		} catch ( \Throwable $error ) {
+			error_log( 'ringopet-pedido: error al cancelar el pedido ' . $peticion['id'] . ': ' . $error->getMessage() . ' en ' . $error->getFile() . ':' . $error->getLine() );
+			return new WP_Error( 'ringopet_cancelar_error', 'No pudimos cancelar el pedido.', array( 'status' => 500 ) );
+		}
+	}
+
+	/** Productos del pedido para volver a agregarlos al carrito (antes de cancelar: cancelar no borra los items). */
+	private static function items_para_reponer( WC_Order $pedido ) {
+		$productos = array();
+		foreach ( $pedido->get_items() as $item ) {
+			$variacion = array();
+			foreach ( $item->get_formatted_meta_data() as $meta ) {
+				$variacion[] = wp_strip_all_tags( $meta->display_key ) . ': ' . wp_strip_all_tags( $meta->display_value );
+			}
+			$productos[] = array(
+				'product_id'   => $item->get_product_id(),
+				'variation_id' => $item->get_variation_id(),
+				'variacion'    => implode( ' · ', $variacion ),
+				'cantidad'     => $item->get_quantity(),
+			);
+		}
+		return $productos;
+	}
+
 	private static function formatear( WC_Order $pedido ) {
 		$metodo = $pedido->get_payment_method();
 
@@ -298,7 +387,7 @@ final class RingoPet_Pedido {
 			return array(
 				'paso'  => 1,
 				'aviso' => null,
-				'texto' => 'bacs' === $pedido->get_payment_method() ? 'Esperando confirmación del pago' : null,
+				'texto' => 'bacs' === $pedido->get_payment_method() ? 'Esperando confirmación del pago' : 'Tu pago está pendiente',
 			);
 		}
 

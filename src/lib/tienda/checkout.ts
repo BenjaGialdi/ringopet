@@ -7,7 +7,7 @@
 import { llamarApi } from './api-navegador';
 import { guardarCarritoCache, guardarMediosPagoCache } from './cache-navegador';
 import { encabezadoNonce } from './sesion-navegador';
-import type { DireccionCarrito, Disponibilidad, DetallePedido, RespuestaCheckout, Carrito, RespuestaMediosPago } from './tipos';
+import type { DireccionCarrito, Disponibilidad, DetallePedido, RespuestaCheckout, Carrito, RespuestaMediosPago, RespuestaCancelarPedido } from './tipos';
 
 export interface BorradorCheckout {
   customer_id: number;
@@ -64,6 +64,20 @@ export async function obtenerPedido(id: number, clave: string): Promise<DetalleP
   });
   const cuerpo = await respuesta.json().catch(() => null);
   if (!respuesta.ok) throw new Error(cuerpo?.message ?? 'No encontramos ese pedido.');
+  return cuerpo;
+}
+
+/**
+ * Cancela un pedido pendiente (vuelta de Mercado Pago sin pagar, ver pagina-carrito.ts).
+ * Si el pedido ya estaba pagado o en otro estado, no cancela nada: informa en qué quedó.
+ */
+export async function cancelarPedido(id: number, clave: string): Promise<RespuestaCancelarPedido> {
+  const respuesta = await fetch(`/wp-json/ringopet/v1/pedido/${id}/cancelar?key=${encodeURIComponent(clave)}`, {
+    method: 'POST',
+    headers: { Accept: 'application/json', ...encabezadoNonce() },
+  });
+  const cuerpo = await respuesta.json().catch(() => null);
+  if (!respuesta.ok) throw new Error(cuerpo?.message ?? 'No pudimos cancelar el pedido.');
   return cuerpo;
 }
 

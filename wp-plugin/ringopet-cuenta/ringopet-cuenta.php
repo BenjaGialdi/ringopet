@@ -2,7 +2,7 @@
 /**
  * Plugin Name: RingoPet Cuenta
  * Description: "Mi cuenta" para Astro (/mi-cuenta/...): sesión, pedidos, direcciones, datos y recuperación de contraseña, todo con las cookies nativas de WordPress. Independiente de ringopet-pedido y ringopet-entrega (se puede desactivar sin afectarlos).
- * Version: 1.2.0
+ * Version: 1.2.1
  * Author: Fluxa
  * Requires Plugins: woocommerce
  * Text Domain: ringopet-cuenta
@@ -465,7 +465,7 @@ final class RingoPet_Cuenta {
 			return array(
 				'paso'  => 1,
 				'aviso' => null,
-				'texto' => 'bacs' === $pedido->get_payment_method() ? 'Esperando confirmación del pago' : null,
+				'texto' => 'bacs' === $pedido->get_payment_method() ? 'Esperando confirmación del pago' : 'Tu pago está pendiente',
 			);
 		}
 

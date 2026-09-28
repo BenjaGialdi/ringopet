@@ -327,6 +327,51 @@ para repintar el resumen. Probado contra `prueba.ringopet.com.ar`: hoy
 `woo-mercado-pago-basic` el total da igual, `fees` vacío) — el mecanismo
 ya queda armado para cuando Benja configure alguno.
 
+**Vuelta de Mercado Pago sin pagar (cancelado, rechazado o pendiente)**:
+MP redirige con `back_urls`, que WooCommerce arma él mismo. Probado con un
+pedido real (#15032):
+
+- **Cancelado o rechazado**: los dos caen en la misma URL,
+  `/carrito/?cancel_order=true&order=<clave>&order_id=<id>&...` — es
+  `$pedido->get_cancel_order_url()`, un método nativo de WooCommerce que
+  arma la URL del carrito con esos parámetros; WooCommerce usa esa misma
+  URL para las dos vueltas (no hay una distinta para "rechazado"). Como
+  `/carrito/` es de Astro, WooCommerce nunca la procesa del lado del
+  servidor (esa lógica vive en el carrito clásico de WordPress, que acá no
+  se usa): el pedido quedaba "pending" para siempre y el cliente volvía sin
+  ningún aviso. Ahora `pagina-carrito.ts` detecta `cancel_order=true` y
+  llama a `POST /wp-json/ringopet/v1/pedido/<id>/cancelar?key=<clave>`
+  (mismo criterio de la clave que la lectura del pedido): si el pedido
+  seguía `pending`/`failed` y sin pagar, lo cancela (`update_status`, Woo
+  repone el stock solo) y devuelve los productos para agregarlos de nuevo
+  al carrito con la Store API (los que sigan con stock; si alguno ya no
+  tiene, se sigue con el resto). Si ya estaba pagado (o en cualquier otro
+  estado), el endpoint no toca nada y Astro manda a `/pedido-recibido/` de
+  ese pedido en vez de tocar el carrito.
+  - Para elegir el aviso ("Cancelaste el pago..." vs "El pago fue
+    rechazado, podés intentar de nuevo"), se mira si Mercado Pago agregó
+    su propio parámetro de estado a esa misma vuelta
+    (`collection_status`/`status` = `rejected`) — no se pudo confirmar con
+    un pago rechazado real en esta sesión (hace falta una tarjeta de
+    prueba que la rechace), así que conviene probarlo antes de dar esto
+    por cerrado del todo.
+- **Pendiente** (efectivo, Rapipago): no se pudo confirmar con una vuelta
+  real de este tipo en esta sesión. Lo más probable, a falta de poder
+  probarlo, es que use la misma URL de "pedido recibido" que un pago
+  aprobado (`get_checkout_order_received_url()`, ya redirigida a
+  `/pedido-recibido/` por `redirigir_a_gracias_astro()`): por eso
+  `avance()` ahora también muestra "Tu pago está pendiente" como texto del
+  paso 1 para cualquier pedido `pending`/`on-hold` que no sea transferencia
+  (antes ese texto era solo para `bacs`). Si Mercado Pago en realidad manda
+  la vuelta pendiente a otro lado, avisar para ajustarlo.
+- **La notificación de pago de Mercado Pago** (`/?wc-api=...`, la que pasa
+  el pedido a "Procesando" cuando se confirma el pago del lado del
+  servidor) **sigue llegando a WordPress**: probado en
+  `prueba.ringopet.com.ar`, `GET /?wc-api=WC_Gateway_Mercado_Pago` devuelve
+  `-1` (la respuesta típica de WooCommerce para un `wc-api` no
+  reconocido), no la portada de Astro — así que el `DirectoryIndex` del
+  `.htaccess` no le gana a esa ruta. No se tocó nada acá.
+
 ### `wp-plugin/ringopet-pedido/` (nuevo)
 
 La Store API tiene un endpoint de lectura de pedido

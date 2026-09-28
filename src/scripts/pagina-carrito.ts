@@ -1,9 +1,63 @@
 /** Página /carrito/: carrito completo (no el panel lateral, que sigue sirviendo para agregar rápido desde cualquier página). */
-import { obtenerCarrito, actualizarCantidad, quitarDelCarrito, aplicarCupon, quitarCupon } from '../lib/tienda/carrito';
+import { obtenerCarrito, actualizarCantidad, quitarDelCarrito, aplicarCupon, quitarCupon, agregarAlCarrito } from '../lib/tienda/carrito';
+import { cancelarPedido } from '../lib/tienda/checkout';
 import { leerCarritoCache } from '../lib/tienda/cache-navegador';
 import { formatearPrecio } from '../lib/moneda';
 import { ErrorApi } from '../lib/tienda/api-navegador';
 import type { Carrito } from '../lib/tienda/tipos';
+
+/**
+ * Vuelta desde Mercado Pago sin pagar (cancelado o rechazado): MP redirige a
+ * /carrito/?cancel_order=true&order=<clave>&order_id=<id>&... — WooCommerce arma esa misma
+ * URL de "cancelar pedido" (get_cancel_order_url()) tanto si el cliente cancela a mano como
+ * si el pago es rechazado, así que /carrito/ (que es de Astro: WooCommerce nunca procesa
+ * ese cancel_order del lado del servidor) es quien tiene que cancelar el pedido pendiente y
+ * reponer el carrito. Mercado Pago agrega sus propios parámetros de estado a la misma
+ * vuelta (collection_status/status): si marcan un rechazo, el aviso es otro.
+ */
+async function manejarVueltaDeMercadoPago(avisoEl: HTMLElement | null, pintar: (c: Carrito) => void) {
+  const parametros = new URLSearchParams(location.search);
+  if (parametros.get('cancel_order') !== 'true') return;
+
+  const pedidoId = Number(parametros.get('order_id'));
+  const clave = parametros.get('order');
+  if (!pedidoId || !clave) return;
+
+  const estadoMp = (parametros.get('collection_status') || parametros.get('status') || '').toLowerCase();
+  const rechazado = estadoMp === 'rejected';
+
+  history.replaceState(null, '', location.pathname);
+
+  try {
+    const resultado = await cancelarPedido(pedidoId, clave);
+
+    if (!resultado.cancelado) {
+      // Ya estaba pagado (u otro estado que no se cancela): no hay nada que reponer al
+      // carrito, el detalle real del pedido está en /pedido-recibido/.
+      location.href = `/pedido-recibido/?pedido=${pedidoId}&key=${encodeURIComponent(clave)}`;
+      return;
+    }
+
+    for (const producto of resultado.productos ?? []) {
+      try {
+        await agregarAlCarrito(producto.variation_id || producto.product_id, producto.cantidad);
+      } catch {
+        // Sin stock o algún otro problema puntual con ese producto: se sigue con el resto.
+      }
+    }
+
+    if (avisoEl) {
+      avisoEl.hidden = false;
+      avisoEl.textContent = rechazado ? 'El pago fue rechazado, podés intentar de nuevo.' : 'Cancelaste el pago. Tus productos siguen en el carrito.';
+    }
+    pintar(await obtenerCarrito());
+  } catch {
+    if (avisoEl) {
+      avisoEl.hidden = false;
+      avisoEl.textContent = 'No pudimos recuperar tu pedido cancelado. Si hace falta, agregá los productos de nuevo.';
+    }
+  }
+}
 
 function actualizarContadores(carrito: Carrito) {
   document.querySelectorAll<HTMLElement>('[data-contador-carrito]').forEach((el) => {
@@ -35,6 +89,7 @@ export function iniciarPaginaCarrito() {
   const totalEl = q<HTMLElement>('[data-carrito-total]');
   const botonFinalizar = q<HTMLAnchorElement>('[data-boton-finalizar]');
   const formCupon = q<HTMLFormElement>('[data-form-cupon]');
+  const avisoMp = q<HTMLElement>('[data-aviso-mp]');
   if (!vacio || !contenido || !lista) return;
 
   function pintar(carrito: Carrito) {
@@ -171,4 +226,6 @@ export function iniciarPaginaCarrito() {
         vacio.hidden = false;
       }
     });
+
+  manejarVueltaDeMercadoPago(avisoMp, pintar);
 }

@@ -8,6 +8,8 @@ import PasosCompra from '../../components/PasosCompra.astro';
   <section class="contenedor py-8" data-pagina-carrito>
     <h1 class="text-3xl sm:text-4xl">Carrito de compra</h1>
 
+    <p data-aviso-mp hidden class="mt-4 rounded-lg bg-fondo-suave p-3 text-sm" role="status"></p>
+
     <div data-carrito-esqueleto class="mt-6 grid animate-pulse gap-8 lg:grid-cols-[1fr_360px]" aria-hidden="true">
       <ul class="divide-y divide-borde">
         {[1, 2].map(() => (
