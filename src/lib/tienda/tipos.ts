@@ -256,11 +256,21 @@ export interface DetallePedido {
   transferencia: CuentaBancaria | null;
   facturacion: DireccionPedido | null;
   envio_direccion: DireccionPedido | null;
+  paso: AvancePedido['paso'];
+  aviso: AvancePedido['aviso'];
+  texto: AvancePedido['texto'];
 }
 
 /** Tipos de wp-plugin/ringopet-cuenta (Mi cuenta): sesión, pedidos, direcciones y datos. */
 
-export interface PedidoResumen {
+/** Línea de avance de 4 pasos (o aviso fuera de línea), armada en el servidor a partir del estado del pedido. */
+export interface AvancePedido {
+  paso: 1 | 2 | 3 | 4 | null;
+  aviso: string | null;
+  texto: string | null;
+}
+
+export interface PedidoResumen extends AvancePedido {
   id: number;
   numero: string;
   fecha: string;
@@ -278,7 +288,7 @@ export interface ItemPedidoCuenta {
   permalink: string | null;
 }
 
-export interface DetallePedidoCuenta {
+export interface DetallePedidoCuenta extends AvancePedido {
   id: number;
   numero: string;
   estado: string;

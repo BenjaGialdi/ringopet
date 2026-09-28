@@ -1,6 +1,8 @@
-/** Página /mi-cuenta/: login si no hay sesión, saludo + accesos si la hay. */
-import { actualizarSesion, ingresar, salir, obtenerPedidos, ErrorCuenta } from '../lib/tienda/cuenta';
+/** Página /mi-cuenta/: login si no hay sesión, saludo + últimos pedidos si la hay. */
+import { actualizarSesion, sesionCacheada, ingresar, salir, ErrorCuenta } from '../lib/tienda/cuenta';
 import { formatearPrecio } from '../lib/moneda';
+import { lineaEstadoHtml } from '../lib/tienda/linea-estado';
+import type { PedidoResumen } from '../lib/tienda/tipos';
 
 export function iniciarPaginaCuentaInicio() {
   const esqueleto = document.querySelector<HTMLElement>('[data-cuenta-esqueleto]');
@@ -26,44 +28,53 @@ export function iniciarPaginaCuentaInicio() {
     location.href = volver || destino;
   }
 
-  async function mostrarPanel(nombre: string) {
+  function pintarUltimosPedidos(pedidos: PedidoResumen[]) {
+    const bloque = panel!.querySelector<HTMLElement>('[data-bloque-ultimos-pedidos]');
+    const lista = panel!.querySelector<HTMLElement>('[data-ultimos-pedidos]');
+    if (!bloque || !lista) return;
+    bloque.hidden = pedidos.length === 0;
+    if (pedidos.length === 0) return;
+    lista.innerHTML = pedidos
+      .slice(0, 3)
+      .map(
+        (p) => `
+          <li>
+            <a href="/mi-cuenta/pedido/?id=${p.id}" class="block p-4 hover:bg-fondo-suave">
+              <div class="flex items-center justify-between">
+                <span class="font-medium">Pedido #${p.numero}</span>
+                <span class="font-semibold">${formatearPrecio(p.total, 2, '$ ')}</span>
+              </div>
+              <div class="mt-1">${lineaEstadoHtml(p)}</div>
+            </a>
+          </li>`,
+      )
+      .join('');
+  }
+
+  function mostrarPanel(nombre: string, pedidos: PedidoResumen[]) {
     esqueleto!.hidden = true;
     formIngresar!.hidden = true;
     panel!.hidden = false;
     panel!.querySelector('[data-saludo-nombre]')!.textContent = nombre;
+    pintarUltimosPedidos(pedidos);
+  }
 
-    const bloque = panel!.querySelector<HTMLElement>('[data-bloque-ultimos-pedidos]');
-    const lista = panel!.querySelector<HTMLElement>('[data-ultimos-pedidos]');
-    if (!bloque || !lista) return;
-    try {
-      const { pedidos } = await obtenerPedidos(1);
-      if (pedidos.length === 0) return;
-      bloque.hidden = false;
-      lista.innerHTML = pedidos
-        .slice(0, 3)
-        .map(
-          (p) => `
-            <li>
-              <a href="/mi-cuenta/pedido/?id=${p.id}" class="flex items-center justify-between p-4 hover:bg-fondo-suave">
-                <span>
-                  <span class="block font-medium">Pedido #${p.numero}</span>
-                  <span class="block text-sm text-texto-suave">${p.estado_label}</span>
-                </span>
-                <span class="font-semibold">${formatearPrecio(p.total, 2, '$ ')}</span>
-              </a>
-            </li>`,
-        )
-        .join('');
-    } catch {
-      /* si falla, el panel se ve igual sin la lista de últimos pedidos */
-    }
+  // Se pinta al instante con la última sesión conocida (si hay), sin esperar al servidor;
+  // actualizarSesion() de abajo confirma o corrige apenas responde.
+  const cache = sesionCacheada();
+  if (cache?.sesion && cache.nombre) {
+    mostrarPanel(cache.nombre, cache.resumen?.pedidos ?? []);
+  } else if (cache && !cache.sesion) {
+    esqueleto.hidden = true;
+    formIngresar.hidden = false;
   }
 
   actualizarSesion().then((sesion) => {
     if (sesion.sesion && sesion.nombre) {
-      mostrarPanel(sesion.nombre);
+      mostrarPanel(sesion.nombre, sesion.resumen?.pedidos ?? []);
     } else {
       esqueleto!.hidden = true;
+      panel!.hidden = true;
       formIngresar!.hidden = false;
     }
   });

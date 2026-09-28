@@ -19,6 +19,8 @@ import Base from '../../../layouts/Base.astro';
       <h1 class="text-3xl sm:text-4xl">Pedido <span data-numero></span></h1>
       <p class="mt-1 text-texto-suave"><span data-fecha></span> · <span data-estado></span></p>
 
+      <div data-linea-estado class="mt-4"></div>
+
       <div data-entrega hidden class="mt-6 rounded-xl border border-borde p-5">
         <p><span data-etiqueta-fecha class="font-medium"></span>: <span data-valor-fecha></span></p>
         <p class="mt-1"><span data-etiqueta-turno class="font-medium"></span>: <span data-valor-turno></span></p>

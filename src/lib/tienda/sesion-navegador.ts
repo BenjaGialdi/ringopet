@@ -8,12 +8,16 @@
  * Por eso el nonce se guarda acá, centralizado, y lo usan tanto api-navegador.ts (Store
  * API) como los fetch sueltos a /wp-json/ringopet/v1/* de todo el sitio.
  */
+import type { PedidoResumen } from './tipos';
+
 const CLAVE_SESION = 'ringopet_sesion';
 
 export interface Sesion {
   sesion: boolean;
   nombre?: string;
   nonce?: string;
+  /** Últimos 5 pedidos del cliente, para el panel de /mi-cuenta/ sin pedirlos aparte. */
+  resumen?: { pedidos: PedidoResumen[] };
 }
 
 let sesionMemoria: Sesion | null = null;
@@ -45,9 +49,14 @@ export function limpiarSesion() {
   }
 }
 
+/** Última copia de la sesión conocida, sin pedir nada al servidor (para pintar al instante). */
+export function sesionCacheada(): Sesion | null {
+  return sesionMemoria ?? leerCache();
+}
+
 /** Nonce actual si hay sesión, sin pedir nada al servidor (lee la copia guardada). */
 export function nonceActual(): string | null {
-  const s = sesionMemoria ?? leerCache();
+  const s = sesionCacheada();
   return s?.sesion && s.nonce ? s.nonce : null;
 }
 

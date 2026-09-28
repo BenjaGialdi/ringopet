@@ -2,6 +2,7 @@
 import { obtenerPedido } from '../lib/tienda/checkout';
 import { formatearPrecio } from '../lib/moneda';
 import { enlaceWhatsapp } from '../lib/url';
+import { lineaEstadoHtml } from '../lib/tienda/linea-estado';
 import type { DetallePedido, DireccionPedido } from '../lib/tienda/tipos';
 
 function pintarDireccion(el: HTMLElement, direccion: DireccionPedido) {
@@ -43,6 +44,9 @@ export function iniciarPaginaGracias() {
     contenido!.querySelector('[data-subtotal]')!.textContent = p(pedido.subtotal);
     contenido!.querySelector('[data-total]')!.textContent = p(pedido.total);
     contenido!.querySelector('[data-metodo-pago]')!.textContent = pedido.metodo_pago_titulo;
+
+    const lineaEl = contenido!.querySelector<HTMLElement>('[data-linea-estado]');
+    if (lineaEl) lineaEl.innerHTML = lineaEstadoHtml(pedido);
 
     const descripcionEl = contenido!.querySelector<HTMLElement>('[data-metodo-pago-descripcion]');
     if (descripcionEl) {

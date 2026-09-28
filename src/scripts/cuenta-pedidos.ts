@@ -1,6 +1,8 @@
 /** Página /mi-cuenta/pedidos/: lista paginada de los pedidos del cliente logueado. */
-import { requerirSesion, obtenerPedidos } from '../lib/tienda/cuenta';
+import { requerirSesion, obtenerPedidos, leerPedidosCache } from '../lib/tienda/cuenta';
 import { formatearPrecio } from '../lib/moneda';
+import { lineaEstadoHtml } from '../lib/tienda/linea-estado';
+import type { PedidoResumen } from '../lib/tienda/tipos';
 
 export function iniciarPaginaPedidos() {
   const esqueleto = document.querySelector<HTMLElement>('[data-pedidos-esqueleto]');
@@ -14,31 +16,30 @@ export function iniciarPaginaPedidos() {
 
   let pagina = 1;
 
-  async function cargar() {
-    esqueleto!.hidden = false;
-    vacio!.hidden = true;
-    lista!.hidden = true;
-    paginado!.hidden = true;
-
-    const { pedidos, total_paginas } = await obtenerPedidos(pagina);
+  function pintar(pedidos: PedidoResumen[], total_paginas: number) {
     esqueleto!.hidden = true;
 
     if (pedidos.length === 0) {
       vacio!.hidden = false;
+      lista!.hidden = true;
       return;
     }
 
+    vacio!.hidden = true;
     lista!.hidden = false;
     lista!.innerHTML = pedidos
       .map(
         (p) => `
           <li>
-            <a href="/mi-cuenta/pedido/?id=${p.id}" class="flex items-center justify-between gap-4 p-4 hover:bg-fondo-suave">
-              <span>
-                <span class="block font-medium">Pedido #${p.numero}</span>
-                <span class="block text-sm text-texto-suave">${new Date(p.fecha).toLocaleDateString('es-AR', { day: 'numeric', month: 'long', year: 'numeric' })} · ${p.estado_label}</span>
-              </span>
-              <span class="shrink-0 font-semibold">${formatearPrecio(p.total, 2, '$ ')}</span>
+            <a href="/mi-cuenta/pedido/?id=${p.id}" class="block p-4 hover:bg-fondo-suave">
+              <div class="flex items-center justify-between gap-4">
+                <span>
+                  <span class="block font-medium">Pedido #${p.numero}</span>
+                  <span class="block text-sm text-texto-suave">${new Date(p.fecha).toLocaleDateString('es-AR', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
+                </span>
+                <span class="shrink-0 font-semibold">${formatearPrecio(p.total, 2, '$ ')}</span>
+              </div>
+              <div class="mt-2">${lineaEstadoHtml(p)}</div>
             </a>
           </li>`,
       )
@@ -49,7 +50,20 @@ export function iniciarPaginaPedidos() {
       paginaActualEl!.textContent = `Página ${pagina} de ${total_paginas}`;
       btnAnterior!.disabled = pagina <= 1;
       btnSiguiente!.disabled = pagina >= total_paginas;
+    } else {
+      paginado!.hidden = true;
     }
+  }
+
+  async function cargar() {
+    if (pagina !== 1) {
+      esqueleto!.hidden = false;
+      vacio!.hidden = true;
+      lista!.hidden = true;
+      paginado!.hidden = true;
+    }
+    const { pedidos, total_paginas } = await obtenerPedidos(pagina);
+    pintar(pedidos, total_paginas);
   }
 
   btnAnterior?.addEventListener('click', () => {
@@ -62,6 +76,11 @@ export function iniciarPaginaPedidos() {
     pagina += 1;
     cargar();
   });
+
+  // Página 1 pintada al instante desde la última copia conocida (si hay), mientras se
+  // confirma la sesión y llega la respuesta real, que siempre gana si difiere.
+  const cache = leerPedidosCache();
+  if (cache) pintar(cache, 1);
 
   requerirSesion().then(cargar);
 }

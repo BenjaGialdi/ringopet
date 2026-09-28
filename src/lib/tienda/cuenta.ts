@@ -3,8 +3,8 @@
  * direcciones y datos. Igual que checkout.ts: rutas relativas, mismo dominio
  * donde está publicado el sitio.
  */
-import { encabezadoNonce, fijarSesion, actualizarSesion, limpiarSesion, type Sesion } from './sesion-navegador';
-import { limpiarCarritoCache } from './cache-navegador';
+import { encabezadoNonce, fijarSesion, actualizarSesion, limpiarSesion, sesionCacheada, type Sesion } from './sesion-navegador';
+import { limpiarCarritoCache, guardarPedidosCache, leerPedidosCache, limpiarPedidosCache } from './cache-navegador';
 import type { PedidoResumen, DetallePedidoCuenta, DireccionCuenta, DatosCuenta } from './tipos';
 
 const BASE = '/wp-json/ringopet/v1/cuenta';
@@ -35,7 +35,7 @@ async function llamar<T>(ruta: string, opciones: RequestInit = {}): Promise<T> {
   return cuerpo as T;
 }
 
-export { actualizarSesion, type Sesion };
+export { actualizarSesion, sesionCacheada, leerPedidosCache, type Sesion };
 
 export async function ingresar(usuario: string, clave: string, recordarme: boolean): Promise<Sesion> {
   const sesion = await llamar<Sesion>('/ingresar', { method: 'POST', body: JSON.stringify({ usuario, clave, recordarme }) });
@@ -47,10 +47,13 @@ export async function salir(): Promise<void> {
   await llamar('/salir', { method: 'POST' });
   limpiarSesion();
   limpiarCarritoCache();
+  limpiarPedidosCache();
 }
 
-export function obtenerPedidos(pagina = 1): Promise<{ pedidos: PedidoResumen[]; pagina: number; total_paginas: number }> {
-  return llamar(`/pedidos?pagina=${pagina}`);
+export async function obtenerPedidos(pagina = 1): Promise<{ pedidos: PedidoResumen[]; pagina: number; total_paginas: number }> {
+  const respuesta = await llamar<{ pedidos: PedidoResumen[]; pagina: number; total_paginas: number }>(`/pedidos?pagina=${pagina}`);
+  if (pagina === 1) guardarPedidosCache(respuesta.pedidos);
+  return respuesta;
 }
 
 export function obtenerPedidoCuenta(id: number): Promise<DetallePedidoCuenta> {
