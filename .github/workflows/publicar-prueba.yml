@@ -59,11 +59,22 @@ jobs:
         run: npm run build
 
       - name: Verificar que la raíz de la cuenta FTP tenga WordPress
+        env:
+          S: ${{ secrets.FTP_PRUEBA_SERVIDOR }}
+          U: ${{ secrets.FTP_PRUEBA_USUARIO }}
+          C: ${{ secrets.FTP_PRUEBA_CLAVE }}
         run: |
-          curl --ftp-ssl -sS -f \
-            -u "${{ secrets.FTP_PRUEBA_USUARIO }}:${{ secrets.FTP_PRUEBA_CLAVE }}" \
-            "ftp://${{ secrets.FTP_PRUEBA_SERVIDOR }}/wp-config.php" -o /dev/null \
-            || { echo "::error::No se encontró wp-config.php en la raíz de la cuenta FTP de prueba. No se sube nada."; exit 1; }
+          set +e
+          # Hostinger usa FTPS con un certificado que no coincide con el dominio del sitio:
+          # se exige cifrado (--ssl-reqd) pero sin verificar el nombre del certificado (-k),
+          # igual que "security: loose" en los pasos de subida.
+          salida=$(curl --ssl-reqd -k -sS -f --connect-timeout 30 -u "$U:$C" "ftp://$S/wp-config.php" -o /dev/null 2>&1)
+          codigo=$?
+          if [ $codigo -ne 0 ]; then
+            echo "::error::No se pudo leer wp-config.php en la raíz de la cuenta FTP de prueba (curl $codigo): $salida. No se sube nada."
+            exit 1
+          fi
+          echo "wp-config.php encontrado en la raíz: es la copia de prueba."
 
       - name: Subir dist/
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
@@ -72,6 +83,7 @@ jobs:
           username: ${{ secrets.FTP_PRUEBA_USUARIO }}
           password: ${{ secrets.FTP_PRUEBA_CLAVE }}
           protocol: ftps
+          security: loose
           local-dir: ./dist/
           server-dir: ./
           state-name: .ftp-deploy-sync-state-dist.json
@@ -90,6 +102,7 @@ jobs:
           username: ${{ secrets.FTP_PRUEBA_USUARIO }}
           password: ${{ secrets.FTP_PRUEBA_CLAVE }}
           protocol: ftps
+          security: loose
           local-dir: ./wp-plugin/ringopet-entrega/
           server-dir: ./wp-content/plugins/ringopet-entrega/
           state-name: .ftp-deploy-sync-state-ringopet-entrega.json
@@ -102,6 +115,7 @@ jobs:
           username: ${{ secrets.FTP_PRUEBA_USUARIO }}
           password: ${{ secrets.FTP_PRUEBA_CLAVE }}
           protocol: ftps
+          security: loose
           local-dir: ./wp-plugin/ringopet-pedido/
           server-dir: ./wp-content/plugins/ringopet-pedido/
           state-name: .ftp-deploy-sync-state-ringopet-pedido.json
@@ -114,6 +128,7 @@ jobs:
           username: ${{ secrets.FTP_PRUEBA_USUARIO }}
           password: ${{ secrets.FTP_PRUEBA_CLAVE }}
           protocol: ftps
+          security: loose
           local-dir: ./wp-plugin/ringopet-cuenta/
           server-dir: ./wp-content/plugins/ringopet-cuenta/
           state-name: .ftp-deploy-sync-state-ringopet-cuenta.json
@@ -126,6 +141,7 @@ jobs:
           username: ${{ secrets.FTP_PRUEBA_USUARIO }}
           password: ${{ secrets.FTP_PRUEBA_CLAVE }}
           protocol: ftps
+          security: loose
           local-dir: ./wp-plugin/ringopet-regenerar/
           server-dir: ./wp-content/plugins/ringopet-regenerar/
           state-name: .ftp-deploy-sync-state-ringopet-regenerar.json
