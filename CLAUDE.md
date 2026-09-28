@@ -312,10 +312,9 @@ HTML real de `/finalizar-compra/` en `prueba.ringopet.com.ar`. La
 provincia se manda fija (`"X"`, Córdoba) sin mostrar el campo: solo se
 reparte en esa zona.
 
-**Cuenta de cliente**: `pagina-checkout.ts` pide `GET checkout` (el
-borrador) para leer `customer_id`; si es `0` (invitado), manda
-`create_account: true` en el pago. WooCommerce se encarga del resto (manda
-el email para elegir contraseña), sin nada más de nuestro lado.
+**Cuenta de cliente**: ver "Cuenta para pedidos de invitado" más abajo.
+Astro manda siempre `create_account: false`; quién asigna o crea la cuenta
+es `ringopet-pedido`, del lado de WordPress.
 
 **Fees por medio de pago (recargos/descuentos)**: al cambiar el radio de
 medio de pago, `actualizarMedioDePago()` manda
@@ -344,12 +343,137 @@ filtra `woocommerce_get_checkout_order_received_url` para que toda vuelta
 de pago (incluida Mercado Pago) caiga en `/pedido-recibido/` de Astro.
 Detalle en `wp-plugin/README.md`.
 
-También agrega `GET /wp-json/ringopet/v1/medios-pago`: id → título de cada
-medio de pago habilitado, tal cual está en WooCommerce > Ajustes > Pagos >
-[medio] > Título (información pública, ya se ve en cualquier checkout sin
-sesión). `pagina-checkout.ts` lo usa para no tener "Transferencia bancaria"
-/"Mercado Pago" escritos a mano — si cambia el título en Woo, cambia solo
-en el sitio.
+También agrega `GET /wp-json/ringopet/v1/medios-pago`: por cada medio de
+pago habilitado, título + descripción + ícono, tal cual WooCommerce >
+Ajustes > Pagos > [medio] (información pública, ya se ve en cualquier
+checkout sin sesión), más el texto de privacidad del pago
+(`wc_get_privacy_policy_text('checkout')`). Se cachea 5 minutos
+(`get_transient`/`set_transient`) y se limpia sola si se guardan los
+ajustes de pagos (`woocommerce_settings_saved`). `pagina-checkout.ts` lo
+usa para no tener nada de esto escrito a mano: título, descripción (se
+muestra debajo del medio elegido, igual que el checkout clásico), ícono
+(el de Mercado Pago es el que trae su propio plugin; "bacs" usa un SVG de
+banco genérico hecho en Astro, no es un dato de negocio) y el texto de
+privacidad, debajo del botón de pagar.
+
+## Cuenta para pedidos de invitado
+
+Benja activó "pago como invitado" en WooCommerce: Astro manda siempre
+`create_account: false`. Quién asigna o crea la cuenta después es
+`ringopet-pedido`, con el hook `woocommerce_store_api_checkout_order_processed`:
+
+- Si el pedido ya tiene `customer_id` (cliente con sesión iniciada): no se
+  toca nada, sigue como venía funcionando.
+- Si no tiene cliente y el email ya existe como usuario: se asigna el
+  pedido a esa cuenta (`set_customer_id` + `save`).
+- Si el email no existe: se crea la cuenta con `wc_create_new_customer`
+  (usuario y contraseña en blanco → WooCommerce los genera solos y manda
+  el email de "elegí tu contraseña", el mismo flujo que un alta manual) y
+  se le asigna el pedido.
+
+Nunca se inicia sesión automáticamente ni se manda nada de la cuenta al
+navegador: es un efecto de lado en WordPress, la respuesta del checkout
+para Astro no cambia.
+
+## Autocompletado del navegador
+
+Los campos de `/finalizar-compra/` tienen `autocomplete` correcto
+(`given-name`, `family-name`, `tel`, `email`, `address-line1`,
+`address-line2`, `address-level2`, `postal-code`) y los que no son de
+dirección postal (fecha, turno, notas) van con `autocomplete="off"`. Antes
+"Calle y número" no tenía `autocomplete`, y Chrome a veces ofrecía
+autocompletar con datos de tarjeta guardados ahí — ningún campo del
+formulario usa nombres que se puedan confundir con eso.
+
+## Pasos de la compra
+
+`src/components/PasosCompra.astro` (recibe `paso={1|2|3}`): "Carrito de
+compra → Finalizar compra → Pedido completado", en `/carrito/`,
+`/finalizar-compra/` y `/pedido-recibido/`. El paso actual va en
+`primario-oscuro` y negrita; los anteriores son enlaces; los que todavía
+no se alcanzaron quedan en gris, sin enlace (no tiene sentido linkear
+adelante: no se puede saltear un paso todavía sin completar).
+
+## Calendario con la marca
+
+`src/styles/flatpickr-marca.css` (se importa en `pagina-checkout.ts`,
+después de `flatpickr/dist/flatpickr.min.css`, para pisar sus colores):
+día elegido en `--c-primario` con texto blanco, hoy con el borde en
+`--c-primario` (relleno solo si además está elegido), hover en un naranja
+suave (`color-mix`), días deshabilitados en gris claro sin hover, y
+bordes redondeados iguales a los campos del formulario. La base de
+`flatpickr.min.css` sigue haciendo falta (layout/posicionamiento del
+popup): lo que se saca es el tema de colores por defecto, no el CSS
+estructural.
+
+## Más rápido: caché en sessionStorage y todo en paralelo
+
+- **`src/lib/tienda/cache-navegador.ts`**: guarda la última respuesta del
+  carrito (y de medios de pago) en `sessionStorage`. `carrito.ts` y
+  `checkout.ts` guardan ahí el carrito después de cada llamada que lo
+  devuelve (agregar, quitar, cantidad, cupón, cambiar dirección, cambiar
+  medio de pago). El panel lateral, `/carrito/` y `/finalizar-compra/`
+  pintan esa copia apenas cargan (antes de que responda WooCommerce) y
+  vuelven a pintar cuando llega la respuesta real — **gana Woo** si difiere
+  (precio, stock, lo que sea). Si `sessionStorage` no está disponible
+  (navegación privada, etc.), se degrada solo a "sin caché", nunca rompe.
+- **Sin caché (primera visita a `/carrito/` o `/finalizar-compra/`)**: se
+  ve un esqueleto (bloques grises con la forma del contenido,
+  `animate-pulse`) en vez de un espacio en blanco, hasta que responde
+  WooCommerce.
+- **`/finalizar-compra/`**: carrito, disponibilidad de entrega y medios de
+  pago se piden los tres en paralelo (`Promise.all`) apenas carga la
+  página, no uno atrás del otro. Medios de pago también queda en
+  `sessionStorage` (cambia poco, no hace falta pedirlo de nuevo en la
+  próxima visita si todavía no respondió).
+
+### Cuánto tardan los endpoints (medido contra `prueba.ringopet.com.ar`)
+
+| Endpoint | 3 mediciones |
+|---|---|
+| `GET wc/store/v1/cart` (nativo de WooCommerce) | 707 / 588 / 638 ms |
+| `GET ringopet/v1/entrega` | 817 / 829 / 918 ms |
+| `GET ringopet/v1/medios-pago` | 761 / 888 / 854 ms |
+
+Los tres están en el mismo orden de magnitud que el endpoint **nativo** de
+WooCommerce (`cart`, que no toca ningún código nuestro) — el grueso del
+tiempo es el arranque de WordPress en este hosting compartido, no algo
+puntual de `ringopet-entrega` o `ringopet-pedido`. Aun así, `entrega` pasa
+los 500 ms pedidos.
+
+Ya cacheado esta vuelta (plugin propio, se podía tocar sin pedir permiso):
+`medios-pago`, 5 minutos, se limpia sola al guardar los ajustes de pagos.
+
+**Propuesta para `ringopet-entrega`** (no la apliqué: es el plugin que no
+se toca sin avisar). La disponibilidad depende de la hora y de los cupos,
+así que no se puede cachear por mucho tiempo, pero sí un rato corto:
+
+```php
+// Adentro de disponibilidad(), envolviendo el cálculo actual:
+$cache = get_transient( 'ringopet_entrega' );
+if ( false !== $cache ) {
+    return $cache;
+}
+$resultado = /* ... el cálculo que ya existe ... */;
+set_transient( 'ringopet_entrega', $resultado, 3 * MINUTE_IN_SECONDS );
+return $resultado;
+```
+
+Y limpiarla cuando entra un pedido, para que un cupo que se llenó se vea
+al toque (mismo hook que ya usa `ringopet-entrega` para sincronizar
+repartos):
+
+```php
+add_action( 'woocommerce_store_api_checkout_order_processed', function () {
+    delete_transient( 'ringopet_entrega' );
+} );
+```
+
+Con esto, la mayoría de las visitas a `/finalizar-compra/` en una misma
+ventana de 3 minutos ahorrarían el cálculo de los 30 días de disponibilidad
+(quedaría el costo fijo de WordPress nada más, unos 600-700 ms). Si
+querés que lo arme, decime y lo hago en un commit aparte, revisable antes
+de subirlo.
 
 ## Sin local ni dirección física
 
@@ -449,6 +573,9 @@ npm run preview  # sirve dist/ ya generado
 
 ## Pendiente / a confirmar con Benja antes de publicar en el sitio real
 
+- **Caché de `ringopet-entrega`**: propuesta lista (ver "Cuánto tardan los
+  endpoints" más arriba), no aplicada porque es el plugin que no se toca
+  sin avisar. Decime si la sumo.
 - **Localidades del checkout** (`src/pages/finalizar-compra/index.astro`):
   no encontré de dónde las arma WooCommerce (no es un ajuste nativo ni de
   ningún plugin con API pública instalado). Quedaron escritas a mano,
