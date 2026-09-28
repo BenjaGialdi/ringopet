@@ -17,7 +17,7 @@ export function iniciarPaginaDetallePedido() {
   }
 
   function pintar(pedido: Awaited<ReturnType<typeof obtenerPedidoCuenta>>) {
-    const p = (m: string) => formatearPrecio(m, 2, '$ ');
+    const p = (m: string) => formatearPrecio(m, pedido.moneda_decimales, '$ ');
 
     contenido!.querySelector('[data-numero]')!.textContent = `#${pedido.numero}`;
     contenido!.querySelector('[data-estado]')!.textContent = pedido.estado_label;

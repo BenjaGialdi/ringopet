@@ -250,6 +250,8 @@ export interface DetallePedido {
   impuestos: string;
   total: string;
   moneda: string;
+  /** Unidades menores de la moneda (2 = centavos), igual que currency_minor_unit de la Store API: los montos de acá vienen en esa unidad, no en pesos con decimales. */
+  moneda_decimales: number;
   nota_cliente: string;
   cupones: string[];
   entrega: { etiqueta_fecha: string; fecha: string; etiqueta_turno: string; turno: string } | null;
@@ -277,6 +279,7 @@ export interface PedidoResumen extends AvancePedido {
   estado: string;
   estado_label: string;
   total: string;
+  moneda_decimales: number;
 }
 
 export interface ItemPedidoCuenta {
@@ -298,6 +301,7 @@ export interface DetallePedidoCuenta extends AvancePedido {
   items: ItemPedidoCuenta[];
   subtotal: string;
   total: string;
+  moneda_decimales: number;
   entrega: { etiqueta_fecha: string; fecha: string; etiqueta_turno: string; turno: string } | null;
   transferencia: { titular: string; cvu: string; alias: string } | null;
 }

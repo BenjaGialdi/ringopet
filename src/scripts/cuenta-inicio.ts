@@ -42,7 +42,7 @@ export function iniciarPaginaCuentaInicio() {
             <a href="/mi-cuenta/pedido/?id=${p.id}" class="block p-4 hover:bg-fondo-suave">
               <div class="flex items-center justify-between">
                 <span class="font-medium">Pedido #${p.numero}</span>
-                <span class="font-semibold">${formatearPrecio(p.total, 2, '$ ')}</span>
+                <span class="font-semibold">${formatearPrecio(p.total, p.moneda_decimales, '$ ')}</span>
               </div>
               <div class="mt-1">${lineaEstadoHtml(p)}</div>
             </a>

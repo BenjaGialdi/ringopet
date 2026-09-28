@@ -2,7 +2,7 @@
 /**
  * Plugin Name: RingoPet Cuenta
  * Description: "Mi cuenta" para Astro (/mi-cuenta/...): sesión, pedidos, direcciones, datos y recuperación de contraseña, todo con las cookies nativas de WordPress. Independiente de ringopet-pedido y ringopet-entrega (se puede desactivar sin afectarlos).
- * Version: 1.1.0
+ * Version: 1.1.1
  * Author: Fluxa
  * Requires Plugins: woocommerce
  * Text Domain: ringopet-cuenta
@@ -212,13 +212,23 @@ final class RingoPet_Cuenta {
 
 	private static function resumen_pedido( WC_Order $pedido ) {
 		return array(
-			'id'           => $pedido->get_id(),
-			'numero'       => $pedido->get_order_number(),
-			'fecha'        => $pedido->get_date_created() ? $pedido->get_date_created()->date( 'c' ) : null,
-			'estado'       => $pedido->get_status(),
-			'estado_label' => wc_get_order_status_name( $pedido->get_status() ),
-			'total'        => number_format( (float) $pedido->get_total(), 2, '.', '' ),
+			'id'               => $pedido->get_id(),
+			'numero'           => $pedido->get_order_number(),
+			'fecha'            => $pedido->get_date_created() ? $pedido->get_date_created()->date( 'c' ) : null,
+			'estado'           => $pedido->get_status(),
+			'estado_label'     => wc_get_order_status_name( $pedido->get_status() ),
+			'total'            => self::monto( $pedido->get_total() ),
+			'moneda_decimales' => wc_get_price_decimals(),
 		) + self::avance( $pedido );
+	}
+
+	/**
+	 * Entero en la unidad menor de la moneda (centavos), igual que la Store API: antes
+	 * estos montos salían "71400.00" (pesos con decimales) y Astro los formateaba como si
+	 * fueran centavos de la Store API, dividiendo por 100 de más.
+	 */
+	private static function monto( $valor ) {
+		return (string) (int) round( (float) $valor * ( 10 ** wc_get_price_decimals() ) );
 	}
 
 	/* ------------------------------------------------------------------ */
@@ -367,8 +377,8 @@ final class RingoPet_Cuenta {
 			$items[]  = array(
 				'nombre'          => $item->get_name(),
 				'cantidad'        => $cantidad,
-				'precio_unitario' => number_format( $cantidad ? (float) $item->get_total() / $cantidad : 0, 2, '.', '' ),
-				'total'           => number_format( (float) $item->get_total(), 2, '.', '' ),
+				'precio_unitario' => self::monto( $cantidad ? (float) $item->get_total() / $cantidad : 0 ),
+				'total'           => self::monto( $item->get_total() ),
 				'imagen'          => $imagen ?: null,
 				'permalink'       => $producto ? $producto->get_permalink() : null,
 			);
@@ -387,8 +397,9 @@ final class RingoPet_Cuenta {
 			'fecha'              => $pedido->get_date_created() ? $pedido->get_date_created()->date( 'c' ) : null,
 			'metodo_pago_titulo' => $pedido->get_payment_method_title(),
 			'items'              => $items,
-			'subtotal'           => number_format( $subtotal, 2, '.', '' ),
-			'total'              => number_format( (float) $pedido->get_total(), 2, '.', '' ),
+			'subtotal'           => self::monto( $subtotal ),
+			'total'              => self::monto( $pedido->get_total() ),
+			'moneda_decimales'   => wc_get_price_decimals(),
 			'entrega'            => ( '' === $fecha_entrega && '' === $turno_entrega ) ? null : array(
 				'etiqueta_fecha' => $etiqueta_fecha ?: 'Fecha de entrega',
 				'fecha'          => $fecha_entrega,

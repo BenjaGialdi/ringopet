@@ -37,7 +37,7 @@ export function iniciarPaginaPedidos() {
                   <span class="block font-medium">Pedido #${p.numero}</span>
                   <span class="block text-sm text-texto-suave">${new Date(p.fecha).toLocaleDateString('es-AR', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
                 </span>
-                <span class="shrink-0 font-semibold">${formatearPrecio(p.total, 2, '$ ')}</span>
+                <span class="shrink-0 font-semibold">${formatearPrecio(p.total, p.moneda_decimales, '$ ')}</span>
               </div>
               <div class="mt-2">${lineaEstadoHtml(p)}</div>
             </a>

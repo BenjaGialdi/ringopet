@@ -2,7 +2,7 @@
 /**
  * Plugin Name: RingoPet Pedido
  * Description: Lectura de un pedido para la página "Gracias" de Astro (/pedido-recibido/), medios de pago para /finalizar-compra/ y alta de cuenta para pedidos de invitado. La Store API (wc/store/v1/order) no trae medio de pago, número de pedido ni fecha/turno de entrega: este endpoint sí. Además manda todas las vueltas de pago (incluida Mercado Pago) a /pedido-recibido/ en vez de la página de WordPress.
- * Version: 1.4.0
+ * Version: 1.4.1
  * Author: Fluxa
  * Requires Plugins: woocommerce
  * Text Domain: ringopet-pedido
@@ -251,6 +251,7 @@ final class RingoPet_Pedido {
 			'impuestos'               => self::monto( $pedido->get_total_tax() ),
 			'total'                   => self::monto( $pedido->get_total() ),
 			'moneda'                  => $pedido->get_currency(),
+			'moneda_decimales'        => wc_get_price_decimals(),
 			'nota_cliente'            => $pedido->get_customer_note(),
 			'cupones'                 => array_map( function ( $c ) {
 				return $c->get_code();
@@ -428,8 +429,15 @@ final class RingoPet_Pedido {
 		);
 	}
 
+	/**
+	 * Entero en la unidad menor de la moneda (centavos), igual que la Store API: antes
+	 * devolvía "71400.00" (pesos con decimales) y Astro lo formateaba como si fuera
+	 * centavos de la Store API, dividiendo por 100 de más — $ 71.400 se veía $ 714,00.
+	 * Ver 'moneda_decimales' en formatear(): con eso Astro usa el mismo formateador
+	 * para todo, sea de la Store API o de acá.
+	 */
 	private static function monto( $valor ) {
-		return number_format( (float) $valor, 2, '.', '' );
+		return (string) (int) round( (float) $valor * ( 10 ** wc_get_price_decimals() ) );
 	}
 }
 

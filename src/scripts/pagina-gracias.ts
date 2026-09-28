@@ -31,7 +31,7 @@ export function iniciarPaginaGracias() {
   }
 
   function pintar(pedido: DetallePedido) {
-    const p = (moneda: string) => formatearPrecio(moneda, 2, '$ ');
+    const p = (moneda: string) => formatearPrecio(moneda, pedido.moneda_decimales, '$ ');
 
     contenido!.querySelector('[data-numero]')!.textContent = `#${pedido.numero}`;
     contenido!.querySelector('[data-estado]')!.textContent = pedido.estado_label;
