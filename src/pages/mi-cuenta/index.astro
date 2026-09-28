@@ -1,0 +1,56 @@
+---
+import Base from '../../layouts/Base.astro';
+---
+
+<Base titulo="Mi cuenta" noindex>
+  <section class="contenedor max-w-md py-8">
+    <h1 class="text-3xl sm:text-4xl">Mi cuenta</h1>
+
+    <div data-cuenta-esqueleto class="mt-6 animate-pulse space-y-4" aria-hidden="true">
+      <div class="h-11 rounded-lg bg-fondo-suave"></div>
+      <div class="h-11 rounded-lg bg-fondo-suave"></div>
+      <div class="h-11 w-32 rounded-lg bg-fondo-suave"></div>
+    </div>
+
+    <form data-form-ingresar hidden class="mt-6 space-y-4" novalidate>
+      <div>
+        <label for="usuario" class="text-sm font-medium">Usuario o correo electrónico</label>
+        <input id="usuario" name="usuario" type="text" autocomplete="username" required class="mt-1 min-h-11 w-full rounded-lg border border-borde px-3" />
+      </div>
+      <div>
+        <label for="clave" class="text-sm font-medium">Contraseña</label>
+        <input id="clave" name="clave" type="password" autocomplete="current-password" required class="mt-1 min-h-11 w-full rounded-lg border border-borde px-3" />
+      </div>
+      <label class="flex items-center gap-2 text-sm">
+        <input type="checkbox" name="recordarme" class="h-4 w-4 accent-primario" />
+        Recordarme
+      </label>
+      <div data-ingresar-error aria-live="polite" class="text-sm text-primario-oscuro"></div>
+      <button type="submit" data-boton-ingresar class="boton w-full disabled:cursor-not-allowed disabled:opacity-50">Ingresar</button>
+      <p class="text-center text-sm">
+        <a href="/mi-cuenta/recuperar/" class="text-primario-oscuro underline underline-offset-2">¿Olvidaste tu contraseña?</a>
+      </p>
+    </form>
+
+    <div data-panel-cuenta hidden class="mt-6">
+      <p class="text-lg">Hola, <strong data-saludo-nombre></strong></p>
+
+      <div class="mt-6" data-bloque-ultimos-pedidos hidden>
+        <h2 class="text-lg">Tus últimos pedidos</h2>
+        <ul data-ultimos-pedidos class="mt-2 divide-y divide-borde rounded-xl border border-borde"></ul>
+      </div>
+
+      <nav class="mt-6 grid gap-2" aria-label="Mi cuenta">
+        <a href="/mi-cuenta/pedidos/" class="flex min-h-11 items-center rounded-lg border border-borde px-4 hover:bg-fondo-suave">Pedidos</a>
+        <a href="/mi-cuenta/direcciones/" class="flex min-h-11 items-center rounded-lg border border-borde px-4 hover:bg-fondo-suave">Direcciones</a>
+        <a href="/mi-cuenta/datos/" class="flex min-h-11 items-center rounded-lg border border-borde px-4 hover:bg-fondo-suave">Datos de la cuenta</a>
+        <button type="button" data-boton-salir class="flex min-h-11 items-center rounded-lg border border-borde px-4 text-left hover:bg-fondo-suave">Cerrar sesión</button>
+      </nav>
+    </div>
+  </section>
+</Base>
+
+<script>
+  import { iniciarPaginaCuentaInicio } from '../../scripts/cuenta-inicio';
+  iniciarPaginaCuentaInicio();
+</script>

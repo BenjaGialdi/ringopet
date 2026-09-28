@@ -1,0 +1,30 @@
+---
+import Base from '../../../layouts/Base.astro';
+---
+
+<Base titulo="Mis pedidos" noindex migas={[{ nombre: 'Mi cuenta', ruta: '/mi-cuenta/' }, { nombre: 'Pedidos', ruta: '/mi-cuenta/pedidos/' }]}>
+  <section class="contenedor max-w-2xl py-8">
+    <h1 class="text-3xl sm:text-4xl">Mis pedidos</h1>
+
+    <div data-pedidos-esqueleto class="mt-6 animate-pulse space-y-3" aria-hidden="true">
+      <div class="h-16 rounded-lg bg-fondo-suave"></div>
+      <div class="h-16 rounded-lg bg-fondo-suave"></div>
+      <div class="h-16 rounded-lg bg-fondo-suave"></div>
+    </div>
+
+    <p data-pedidos-vacio hidden class="py-16 text-center text-texto-suave">Todavía no hiciste ningún pedido.</p>
+
+    <ul data-lista-pedidos hidden class="mt-6 divide-y divide-borde rounded-xl border border-borde"></ul>
+
+    <div data-paginado hidden class="mt-4 flex items-center justify-between">
+      <button type="button" data-pagina-anterior class="boton-borde disabled:cursor-not-allowed disabled:opacity-50">Anteriores</button>
+      <span data-pagina-actual class="text-sm text-texto-suave"></span>
+      <button type="button" data-pagina-siguiente class="boton-borde disabled:cursor-not-allowed disabled:opacity-50">Siguientes</button>
+    </div>
+  </section>
+</Base>
+
+<script>
+  import { iniciarPaginaPedidos } from '../../../scripts/cuenta-pedidos';
+  iniciarPaginaPedidos();
+</script>

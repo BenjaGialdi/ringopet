@@ -1,0 +1,31 @@
+---
+import Base from '../../../layouts/Base.astro';
+---
+
+<Base titulo="Recuperar contraseña" noindex>
+  <section class="contenedor max-w-sm py-8">
+    <h1 class="text-3xl sm:text-4xl">Recuperar contraseña</h1>
+    <p class="mt-2 text-texto-suave">Ingresá tu usuario o correo electrónico y te mandamos un enlace para elegir una contraseña nueva.</p>
+
+    <form data-form-recuperar class="mt-6 space-y-4" novalidate>
+      <div>
+        <label for="usuario" class="text-sm font-medium">Usuario o correo electrónico</label>
+        <input id="usuario" name="usuario" type="text" autocomplete="username" required class="mt-1 min-h-11 w-full rounded-lg border border-borde px-3" />
+      </div>
+      <button type="submit" data-boton-recuperar class="boton w-full disabled:cursor-not-allowed disabled:opacity-50">Enviar enlace</button>
+    </form>
+
+    <div data-recuperar-ok hidden class="mt-6 rounded-lg bg-fondo-suave p-4 text-sm">
+      Si el usuario o el correo existen, te mandamos un email con el enlace para elegir una contraseña nueva.
+    </div>
+
+    <p class="mt-6 text-sm">
+      <a href="/mi-cuenta/" class="text-primario-oscuro underline underline-offset-2">Volver a Mi cuenta</a>
+    </p>
+  </section>
+</Base>
+
+<script>
+  import { iniciarPaginaRecuperar } from '../../../scripts/cuenta-recuperar';
+  iniciarPaginaRecuperar();
+</script>

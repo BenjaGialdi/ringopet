@@ -1,0 +1,53 @@
+---
+import Base from '../../../layouts/Base.astro';
+---
+
+<Base titulo="Datos de la cuenta" noindex migas={[{ nombre: 'Mi cuenta', ruta: '/mi-cuenta/' }, { nombre: 'Datos', ruta: '/mi-cuenta/datos/' }]}>
+  <section class="contenedor max-w-md py-8">
+    <h1 class="text-3xl sm:text-4xl">Datos de la cuenta</h1>
+
+    <div data-datos-esqueleto class="mt-6 animate-pulse space-y-4" aria-hidden="true">
+      <div class="h-11 rounded-lg bg-fondo-suave"></div>
+      <div class="h-11 rounded-lg bg-fondo-suave"></div>
+      <div class="h-11 rounded-lg bg-fondo-suave"></div>
+    </div>
+
+    <form data-form-datos hidden class="mt-6 space-y-4" novalidate>
+      <div>
+        <label for="first_name" class="text-sm font-medium">Nombre *</label>
+        <input id="first_name" name="first_name" type="text" autocomplete="given-name" required class="mt-1 min-h-11 w-full rounded-lg border border-borde px-3" />
+      </div>
+      <div>
+        <label for="last_name" class="text-sm font-medium">Apellido *</label>
+        <input id="last_name" name="last_name" type="text" autocomplete="family-name" required class="mt-1 min-h-11 w-full rounded-lg border border-borde px-3" />
+      </div>
+      <div>
+        <label for="email" class="text-sm font-medium">Correo electrónico *</label>
+        <input id="email" name="email" type="email" autocomplete="email" required class="mt-1 min-h-11 w-full rounded-lg border border-borde px-3" />
+      </div>
+
+      <fieldset class="rounded-lg border border-borde p-4">
+        <legend class="px-1 text-sm font-medium">Cambiar contraseña (opcional)</legend>
+        <div class="space-y-3">
+          <div>
+            <label for="clave_actual" class="text-sm font-medium">Contraseña actual</label>
+            <input id="clave_actual" name="clave_actual" type="password" autocomplete="current-password" class="mt-1 min-h-11 w-full rounded-lg border border-borde px-3" />
+          </div>
+          <div>
+            <label for="clave_nueva" class="text-sm font-medium">Contraseña nueva</label>
+            <input id="clave_nueva" name="clave_nueva" type="password" autocomplete="new-password" class="mt-1 min-h-11 w-full rounded-lg border border-borde px-3" />
+          </div>
+        </div>
+      </fieldset>
+
+      <div data-datos-error aria-live="polite" class="text-sm text-primario-oscuro"></div>
+      <p data-datos-ok hidden aria-live="polite" class="text-sm text-primario-oscuro">Cambios guardados.</p>
+      <button type="submit" data-boton-guardar class="boton w-full disabled:cursor-not-allowed disabled:opacity-50">Guardar cambios</button>
+    </form>
+  </section>
+</Base>
+
+<script>
+  import { iniciarPaginaDatos } from '../../../scripts/cuenta-datos';
+  iniciarPaginaDatos();
+</script>

@@ -257,3 +257,53 @@ export interface DetallePedido {
   facturacion: DireccionPedido | null;
   envio_direccion: DireccionPedido | null;
 }
+
+/** Tipos de wp-plugin/ringopet-cuenta (Mi cuenta): sesión, pedidos, direcciones y datos. */
+
+export interface PedidoResumen {
+  id: number;
+  numero: string;
+  fecha: string;
+  estado: string;
+  estado_label: string;
+  total: string;
+}
+
+export interface ItemPedidoCuenta {
+  nombre: string;
+  cantidad: number;
+  precio_unitario: string;
+  total: string;
+  imagen: string | null;
+  permalink: string | null;
+}
+
+export interface DetallePedidoCuenta {
+  id: number;
+  numero: string;
+  estado: string;
+  estado_label: string;
+  fecha: string;
+  metodo_pago_titulo: string;
+  items: ItemPedidoCuenta[];
+  subtotal: string;
+  total: string;
+  entrega: { etiqueta_fecha: string; fecha: string; etiqueta_turno: string; turno: string } | null;
+  transferencia: { titular: string; cvu: string; alias: string } | null;
+}
+
+export interface DireccionCuenta {
+  first_name: string;
+  last_name: string;
+  phone: string;
+  address_1: string;
+  address_2: string;
+  city: string;
+  postcode: string;
+}
+
+export interface DatosCuenta {
+  first_name: string;
+  last_name: string;
+  email: string;
+}

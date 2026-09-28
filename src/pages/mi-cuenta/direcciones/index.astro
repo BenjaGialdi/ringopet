@@ -1,0 +1,71 @@
+---
+import Base from '../../../layouts/Base.astro';
+
+// PENDIENTE (regla "Astro solo lee de Woo", ver CLAUDE.md): misma lista que
+// src/pages/finalizar-compra/index.astro, con el mismo PENDIENTE — hay que
+// mantenerlas iguales hasta encontrar de dónde arma Woo esta lista de verdad.
+const localidades = [
+  { valor: 'Córdoba', texto: 'Córdoba capital (incluye Argüello, Valle Escondido y V. Belgrano)' },
+  { valor: 'La Calera', texto: 'La Calera' },
+  { valor: 'Saldán', texto: 'Saldán' },
+  { valor: 'Villa Allende', texto: 'Villa Allende' },
+  { valor: 'Mendiolaza', texto: 'Mendiolaza' },
+  { valor: 'Unquillo', texto: 'Unquillo' },
+  { valor: 'Río Ceballos', texto: 'Río Ceballos' },
+];
+---
+
+<Base titulo="Mi dirección" noindex migas={[{ nombre: 'Mi cuenta', ruta: '/mi-cuenta/' }, { nombre: 'Direcciones', ruta: '/mi-cuenta/direcciones/' }]}>
+  <section class="contenedor max-w-md py-8">
+    <h1 class="text-3xl sm:text-4xl">Dirección de entrega</h1>
+
+    <div data-direccion-esqueleto class="mt-6 animate-pulse space-y-4" aria-hidden="true">
+      <div class="h-11 rounded-lg bg-fondo-suave"></div>
+      <div class="h-11 rounded-lg bg-fondo-suave"></div>
+      <div class="h-11 rounded-lg bg-fondo-suave"></div>
+    </div>
+
+    <form data-form-direccion hidden class="mt-6 grid gap-4 sm:grid-cols-2" novalidate>
+      <div>
+        <label for="first_name" class="text-sm font-medium">Nombre *</label>
+        <input id="first_name" name="first_name" type="text" autocomplete="given-name" required class="mt-1 min-h-11 w-full rounded-lg border border-borde px-3" />
+      </div>
+      <div>
+        <label for="last_name" class="text-sm font-medium">Apellido *</label>
+        <input id="last_name" name="last_name" type="text" autocomplete="family-name" required class="mt-1 min-h-11 w-full rounded-lg border border-borde px-3" />
+      </div>
+      <div class="sm:col-span-2">
+        <label for="phone" class="text-sm font-medium">Teléfono *</label>
+        <input id="phone" name="phone" type="tel" autocomplete="tel" required class="mt-1 min-h-11 w-full rounded-lg border border-borde px-3" />
+      </div>
+      <div>
+        <label for="address_1" class="text-sm font-medium">Calle y número *</label>
+        <input id="address_1" name="address_1" type="text" autocomplete="address-line1" required class="mt-1 min-h-11 w-full rounded-lg border border-borde px-3" />
+      </div>
+      <div>
+        <label for="address_2" class="text-sm font-medium">Piso, depto o barrio cerrado (opcional)</label>
+        <input id="address_2" name="address_2" type="text" autocomplete="address-line2" class="mt-1 min-h-11 w-full rounded-lg border border-borde px-3" />
+      </div>
+      <div>
+        <label for="city" class="text-sm font-medium">Localidad *</label>
+        <select id="city" name="city" autocomplete="address-level2" required class="mt-1 min-h-11 w-full rounded-lg border border-borde px-3">
+          <option value="">Elegí tu localidad</option>
+          {localidades.map((loc) => <option value={loc.valor}>{loc.texto}</option>)}
+        </select>
+      </div>
+      <div>
+        <label for="postcode" class="text-sm font-medium">Código postal *</label>
+        <input id="postcode" name="postcode" type="text" autocomplete="postal-code" required class="mt-1 min-h-11 w-full rounded-lg border border-borde px-3" />
+      </div>
+
+      <div data-direccion-error aria-live="polite" class="sm:col-span-2 text-sm text-primario-oscuro"></div>
+      <p data-direccion-ok hidden aria-live="polite" class="sm:col-span-2 text-sm text-primario-oscuro">Dirección guardada.</p>
+      <button type="submit" data-boton-guardar class="boton sm:col-span-2 disabled:cursor-not-allowed disabled:opacity-50">Guardar dirección</button>
+    </form>
+  </section>
+</Base>
+
+<script>
+  import { iniciarPaginaDirecciones } from '../../../scripts/cuenta-direcciones';
+  iniciarPaginaDirecciones();
+</script>

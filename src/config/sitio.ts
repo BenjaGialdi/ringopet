@@ -73,7 +73,7 @@ export interface Sitio {
     searchConsole: string;
   };
 
-  /** finalizarCompra ya es una página de Astro (ver src/pages/finalizar-compra/); miCuenta sigue en WordPress. */
+  /** finalizarCompra y miCuenta ya son páginas de Astro (ver src/pages/finalizar-compra/ y src/pages/mi-cuenta/). */
   rutas: {
     finalizarCompra: string;
     miCuenta: string;

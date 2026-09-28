@@ -1,0 +1,25 @@
+---
+import Base from '../../../layouts/Base.astro';
+---
+
+<!--
+  Esta carpeta existe para interceptar el endpoint nativo de Mi cuenta de WooCommerce
+  (Ajustes > Avanzado > Endpoints de cuenta > "Contraseña perdida", slug real verificado
+  en prueba.ringopet.com.ar: /mi-cuenta/lost-password/). Ahí caen los enlaces de los
+  emails de WooCommerce/WordPress para elegir contraseña (cuenta nueva creada desde el
+  pago) y para recuperar una contraseña (?key=...&login=...): esta página los redirige a
+  /mi-cuenta/nueva-clave/ conservando esos dos parámetros. /mi-cuenta/ también detecta
+  estos parámetros como respaldo, por si algún enlace viejo apunta ahí directo.
+-->
+<Base titulo="Contraseña perdida" noindex>
+  <section class="contenedor max-w-sm py-16 text-center text-texto-suave">
+    <p>Redirigiendo...</p>
+  </section>
+</Base>
+
+<script>
+  const parametros = new URLSearchParams(location.search);
+  const key = parametros.get('key');
+  const login = parametros.get('login');
+  location.replace(key && login ? `/mi-cuenta/nueva-clave/?key=${encodeURIComponent(key)}&login=${encodeURIComponent(login)}` : '/mi-cuenta/recuperar/');
+</script>
