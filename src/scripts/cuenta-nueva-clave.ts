@@ -11,9 +11,10 @@ export function iniciarPaginaNuevaClave() {
 
   const parametros = new URLSearchParams(location.search);
   const key = parametros.get('key');
-  const login = parametros.get('login');
+  const login = parametros.get('login') ?? '';
+  const id = parametros.get('id') ?? '';
 
-  if (!key || !login) {
+  if (!key || (!login && !id)) {
     form.hidden = true;
     errorEnlace.hidden = false;
     return;
@@ -33,7 +34,7 @@ export function iniciarPaginaNuevaClave() {
 
     boton?.setAttribute('disabled', 'true');
     try {
-      await elegirClaveNueva(key, login, clave);
+      await elegirClaveNueva(key, login, clave, id);
       form.hidden = true;
       ok.hidden = false;
     } catch (error) {

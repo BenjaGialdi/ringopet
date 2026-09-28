@@ -80,8 +80,8 @@ export function recuperarClave(usuario: string): Promise<{ ok: true }> {
   return llamar('/recuperar', { method: 'POST', body: JSON.stringify({ usuario }) });
 }
 
-export function elegirClaveNueva(key: string, login: string, clave: string): Promise<{ ok: true }> {
-  return llamar('/nueva-clave', { method: 'POST', body: JSON.stringify({ key, login, clave }) });
+export function elegirClaveNueva(key: string, login: string, clave: string, id = ''): Promise<{ ok: true }> {
+  return llamar('/nueva-clave', { method: 'POST', body: JSON.stringify({ key, login, clave, id }) });
 }
 
 /** Para las páginas privadas de Mi cuenta: si no hay sesión, manda a /mi-cuenta/ (con vuelta) y no resuelve. */

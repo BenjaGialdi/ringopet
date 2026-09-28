@@ -21,5 +21,8 @@ import Base from '../../../layouts/Base.astro';
   const parametros = new URLSearchParams(location.search);
   const key = parametros.get('key');
   const login = parametros.get('login');
-  location.replace(key && login ? `/mi-cuenta/nueva-clave/?key=${encodeURIComponent(key)}&login=${encodeURIComponent(login)}` : '/mi-cuenta/recuperar/');
+  // El email de recuperación de WooCommerce manda ?key=&id= (id del usuario); el de cuenta nueva, ?key=&login=.
+  const id = parametros.get('id');
+  const quien = login ? `login=${encodeURIComponent(login)}` : id ? `id=${encodeURIComponent(id)}` : '';
+  location.replace(key && quien ? `/mi-cuenta/nueva-clave/?key=${encodeURIComponent(key)}&${quien}` : '/mi-cuenta/recuperar/');
 </script>

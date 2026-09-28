@@ -2,7 +2,7 @@
 /**
  * Plugin Name: RingoPet Cuenta
  * Description: "Mi cuenta" para Astro (/mi-cuenta/...): sesión, pedidos, direcciones, datos y recuperación de contraseña, todo con las cookies nativas de WordPress. Independiente de ringopet-pedido y ringopet-entrega (se puede desactivar sin afectarlos).
- * Version: 1.1.1
+ * Version: 1.2.0
  * Author: Fluxa
  * Requires Plugins: woocommerce
  * Text Domain: ringopet-cuenta
@@ -47,6 +47,12 @@ final class RingoPet_Cuenta {
 		// Enlaces de WordPress/WooCommerce que apuntan a Mi cuenta: a las páginas de Astro.
 		add_filter( 'lostpassword_url', array( __CLASS__, 'url_recuperar' ), 10, 1 );
 		add_filter( 'retrieve_password_message', array( __CLASS__, 'mensaje_recuperar' ), 10, 4 );
+
+		// Los emails propios de WordPress (no los de WooCommerce) salen como "WordPress
+		// <wordpress@dominio>". Se usan el nombre y la dirección del remitente de
+		// WooCommerce > Ajustes > Correos electrónicos, así todo sale como RingoPet.
+		add_filter( 'wp_mail_from_name', array( __CLASS__, 'remitente_nombre' ) );
+		add_filter( 'wp_mail_from', array( __CLASS__, 'remitente_email' ) );
 		add_filter( 'woocommerce_get_view_order_url', array( __CLASS__, 'url_ver_pedido' ), 10, 2 );
 	}
 
@@ -58,7 +64,21 @@ final class RingoPet_Cuenta {
 		return home_url( '/mi-cuenta/recuperar/' );
 	}
 
-	/** Reescribe el enlace de wp-login.php del email de "recuperar contraseña" (flujo de autoservicio). */
+	public static function remitente_nombre( $nombre ) {
+		$woo = get_option( 'woocommerce_email_from_name' );
+		return ( 'WordPress' === $nombre && $woo ) ? $woo : $nombre;
+	}
+
+	public static function remitente_email( $email ) {
+		$woo = get_option( 'woocommerce_email_from_address' );
+		return ( 0 === strpos( $email, 'wordpress@' ) && is_email( $woo ) ) ? $woo : $email;
+	}
+
+	/**
+	 * Respaldo: si algo dispara el email de recuperación de WordPress (por ejemplo desde
+	 * wp-login.php), se reescribe su enlace hacia Astro. El flujo normal de /mi-cuenta/recuperar/
+	 * ya no usa este email sino el de WooCommerce (ver recuperar()).
+	 */
 	public static function mensaje_recuperar( $mensaje, $key, $user_login, $user_data ) {
 		$url_nueva = add_query_arg(
 			array(
@@ -69,7 +89,9 @@ final class RingoPet_Cuenta {
 		);
 		// El mensaje de WordPress trae la URL de wp-login.php ya armada en una línea propia:
 		// se reemplaza esa URL completa por la nuestra, sin tocar el resto del texto.
-		$patron = '#https?://[^\s]*wp-login\.php\?action=rp[^\s]*#';
+		// WordPress arma la URL como wp-login.php?login=...&key=...&action=rp&wp_lang=...:
+		// action=rp no va primero, así que se busca en cualquier posición de la URL.
+		$patron = '#https?://\S*wp-login\.php\?\S*action=rp\S*#';
 		return preg_replace( $patron, $url_nueva, $mensaje );
 	}
 
@@ -627,7 +649,17 @@ final class RingoPet_Cuenta {
 		// al visitante: si se pasa, igual responde "ok" (nunca delata que hay un límite).
 		if ( self::verificar_limite( $clave_ip ) && '' !== $valor ) {
 			self::registrar_intento( $clave_ip );
-			retrieve_password( $valor );
+			// Mismo flujo que "¿Olvidaste tu contraseña?" de WooCommerce: email con la plantilla
+			// y el remitente de Woo (no el de WordPress), con enlace a /mi-cuenta/lost-password/
+			// (?key=&id=), que en Astro redirige a /mi-cuenta/nueva-clave/.
+			$usuario = is_email( $valor ) ? get_user_by( 'email', $valor ) : get_user_by( 'login', $valor );
+			if ( $usuario ) {
+				$key = get_password_reset_key( $usuario );
+				if ( ! is_wp_error( $key ) && function_exists( 'WC' ) ) {
+					WC()->mailer();
+					do_action( 'woocommerce_reset_password_notification', $usuario->user_login, $key );
+				}
+			}
 		}
 
 		return rest_ensure_response( array( 'ok' => true ) );
@@ -639,6 +671,13 @@ final class RingoPet_Cuenta {
 		$key   = (string) $peticion->get_param( 'key' );
 		$login = (string) $peticion->get_param( 'login' );
 		$clave = (string) $peticion->get_param( 'clave' );
+
+		// El email de recuperación de WooCommerce manda el id del usuario en vez del login.
+		$id = absint( $peticion->get_param( 'id' ) );
+		if ( '' === $login && $id ) {
+			$datos_usuario = get_userdata( $id );
+			$login         = $datos_usuario ? $datos_usuario->user_login : '';
+		}
 
 		if ( '' === $key || '' === $login || '' === $clave ) {
 			return new WP_Error( 'ringopet_datos_incompletos', 'Faltan datos.', array( 'status' => 400 ) );
