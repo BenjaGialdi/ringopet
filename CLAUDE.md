@@ -21,21 +21,21 @@ vive en Woo y va a seguir siendo un valor fijo a propósito.
 
 - **WooCommerce es back-end**: WordPress + WoodMart siguen procesando los
   pedidos (Store API, Mercado Pago, ORDDD, stock, emails), pero el visitante
-  ya no ve ninguna página de WordPress en la compra. Solo `/mi-cuenta/`
-  sigue siendo una página de WordPress (por ahora).
+  ya no ve ninguna página de WordPress en la compra ni en Mi cuenta.
 - Astro genera: portada (`/`), categorías (`/categoria-producto/.../`),
   productos (`/producto/<slug>/`), búsqueda (`/busqueda/`), carrito
-  (`/carrito/`), pago (`/finalizar-compra/`) y gracias
-  (`/pedido-recibido/`). Todo estático, se sube al mismo `public_html` que
-  WordPress.
+  (`/carrito/`), pago (`/finalizar-compra/`), gracias
+  (`/pedido-recibido/`) y Mi cuenta (`/mi-cuenta/` y sus 6 subpáginas, ver
+  más abajo). Todo estático, se sube al mismo `public_html` que WordPress.
 - Convivencia por existencia de archivo: cada página de Astro es una carpeta
   real con su `index.html`, así que Apache la sirve directo. Lo que no es
-  una carpeta real (`/mi-cuenta/`, rutas de `/wp-json/`, subrutas como
-  `/finalizar-compra/order-pay/123/`...) cae al `index.php` de WordPress,
-  como siempre — `/finalizar-compra/order-pay/.../` no es una carpeta que
-  Astro genere, así que sigue yendo a WooCommerce sin que haga falta ninguna
-  regla aparte (confirmar una vez publicado: no se pudo probar en esta
-  sesión sin un pedido pendiente de pago real). **Astro no publica ningún
+  una carpeta real (rutas de `/wp-json/`, subrutas como
+  `/finalizar-compra/order-pay/123/` o `/mi-cuenta/order-pay/123/`...) cae
+  al `index.php` de WordPress, como siempre — no son carpetas que Astro
+  genere, así que siguen yendo a WooCommerce sin que haga falta ninguna
+  regla aparte (confirmar `/finalizar-compra/order-pay/` una vez publicado:
+  no se pudo probar en esta sesión sin un pedido pendiente de pago real).
+  **Astro no publica ningún
   `.htaccess`** (ver "Publicación" más abajo): hace falta un agregado manual
   de una sola línea al `.htaccess` real del servidor para que esto funcione,
   documentado en `README.md`.
@@ -375,6 +375,72 @@ Nunca se inicia sesión automáticamente ni se manda nada de la cuenta al
 navegador: es un efecto de lado en WordPress, la respuesta del checkout
 para Astro no cambia.
 
+## Mi cuenta (`wp-plugin/ringopet-cuenta/`)
+
+7 páginas nuevas bajo `/mi-cuenta/`, con las cookies nativas de WordPress
+(no hay sesión propia de Astro): `/mi-cuenta/` (login o saludo + accesos +
+últimos pedidos), `/mi-cuenta/pedidos/` (lista paginada),
+`/mi-cuenta/pedido/?id=` (detalle, el servidor valida que sea del cliente
+logueado), `/mi-cuenta/direcciones/`, `/mi-cuenta/datos/` (nombre, apellido,
+email y cambio de contraseña con la actual), `/mi-cuenta/recuperar/` y
+`/mi-cuenta/nueva-clave/?key=&login=`. Plugin independiente de
+`ringopet-pedido`/`ringopet-entrega` (se puede desactivar sin romper el
+resto): endpoints en `GET/POST /wp-json/ringopet/v1/cuenta/*`.
+
+**Seguridad**: mensajes genéricos en login y recuperación (nunca revelan si
+un usuario/email existe), límite de 5 intentos cada 15 minutos por IP y por
+usuario (login) o por IP (recuperar, sin bloquear la respuesta — siempre
+"ok"), y toda operación sobre pedidos/direcciones/datos usa
+`get_current_user_id()`, nunca un id que mande el navegador. El CSRF lo
+resuelve el núcleo de WordPress solo (ver más abajo), no hay nada propio.
+
+**El nonce de WordPress, una vez que hay sesión, hace falta en todo el
+sitio**: WordPress exige un `X-WP-Nonce` válido en cualquier llamada a
+`/wp-json/*` de un visitante con sesión iniciada (`rest_cookie_check_errors`,
+del núcleo — antes de esta vuelta nadie iniciaba sesión, así que esto nunca
+se había necesitado). A un invitado sin sesión no le exige nada.
+`src/lib/tienda/sesion-navegador.ts` guarda el nonce (en `sessionStorage`,
+lo pisa el login o `GET .../cuenta/sesion`) y lo agregan tanto
+`api-navegador.ts` (Store API: carrito, checkout) como los fetch sueltos a
+`/wp-json/ringopet/v1/*` (`checkout.ts`, `busqueda.ts`,
+`producto-variantes.ts`). Si el nonce guardado venció (pestaña nueva, sesión
+vieja) y WordPress responde `rest_cookie_invalid_nonce`, `api-navegador.ts`
+pide uno nuevo y reintenta la llamada una sola vez, sin que el visitante lo
+note. Al cerrar sesión (`salir()` en `src/lib/tienda/cuenta.ts`) se borra el
+nonce y la copia del carrito de `sessionStorage`: el carrito de un cliente
+no debería quedar pintado para el siguiente visitante de ese navegador.
+
+**Enlaces de email hacia Astro**: el de "recuperar contraseña" (flujo de
+autoservicio, filtro `retrieve_password_message` de WordPress) se reescribe
+directo a `/mi-cuenta/nueva-clave/?key=&login=`. El de "elegí tu contraseña"
+que manda WooCommerce al crear una cuenta desde el pago
+(`wc_create_new_customer` con contraseña en blanco) apunta al endpoint
+nativo de Mi cuenta — verificado en `prueba.ringopet.com.ar`:
+`/mi-cuenta/lost-password/?key=&login=` (slug en inglés aunque el texto de
+WooCommerce esté en castellano) — que ahora es una carpeta propia de Astro
+(`src/pages/mi-cuenta/lost-password/`) y redirige a `/mi-cuenta/nueva-clave/`
+conservando `key` y `login`. `/mi-cuenta/` también detecta esos dos
+parámetros como respaldo, por si algún enlace viejo cae ahí directo.
+
+**Direcciones**: mismos 7 campos y la misma lista fija de localidades que
+`/finalizar-compra/` (mismo `PENDIENTE`, ver "Regla fija" arriba — hay que
+mantener las dos listas iguales hasta encontrar de dónde la arma Woo de
+verdad). Facturación se guarda igual a envío: el pago tampoco pide una
+dirección de facturación distinta.
+
+**Detalle de pedido**: `ringopet-cuenta` arma la respuesta con el mismo
+criterio que `ringopet-pedido::formatear()`, pero duplicado a propósito en
+vez de compartido entre plugins, para que cada uno siga siendo
+independiente.
+
+**Quedan en WordPress** (no son carpetas que Astro genere): pagar un pedido
+pendiente (`/mi-cuenta/order-pay/<id>/`) y cualquier endpoint de extensión
+que WooCommerce agregue a futuro y no esté cubierto acá (por ejemplo
+descargas, si algún día hay productos descargables). Los endpoints nativos
+`/mi-cuenta/orders/`, `/mi-cuenta/edit-address/` y `/mi-cuenta/edit-account/`
+también siguen respondiendo (nadie los desactivó), pero ya no están
+enlazados desde ningún lado de Astro ni de los emails.
+
 ## Autocompletado del navegador
 
 Los campos de `/finalizar-compra/` tienen `autocomplete` correcto
@@ -441,39 +507,10 @@ tiempo es el arranque de WordPress en este hosting compartido, no algo
 puntual de `ringopet-entrega` o `ringopet-pedido`. Aun así, `entrega` pasa
 los 500 ms pedidos.
 
-Ya cacheado esta vuelta (plugin propio, se podía tocar sin pedir permiso):
-`medios-pago`, 5 minutos, se limpia sola al guardar los ajustes de pagos.
-
-**Propuesta para `ringopet-entrega`** (no la apliqué: es el plugin que no
-se toca sin avisar). La disponibilidad depende de la hora y de los cupos,
-así que no se puede cachear por mucho tiempo, pero sí un rato corto:
-
-```php
-// Adentro de disponibilidad(), envolviendo el cálculo actual:
-$cache = get_transient( 'ringopet_entrega' );
-if ( false !== $cache ) {
-    return $cache;
-}
-$resultado = /* ... el cálculo que ya existe ... */;
-set_transient( 'ringopet_entrega', $resultado, 3 * MINUTE_IN_SECONDS );
-return $resultado;
-```
-
-Y limpiarla cuando entra un pedido, para que un cupo que se llenó se vea
-al toque (mismo hook que ya usa `ringopet-entrega` para sincronizar
-repartos):
-
-```php
-add_action( 'woocommerce_store_api_checkout_order_processed', function () {
-    delete_transient( 'ringopet_entrega' );
-} );
-```
-
-Con esto, la mayoría de las visitas a `/finalizar-compra/` en una misma
-ventana de 3 minutos ahorrarían el cálculo de los 30 días de disponibilidad
-(quedaría el costo fijo de WordPress nada más, unos 600-700 ms). Si
-querés que lo arme, decime y lo hago en un commit aparte, revisable antes
-de subirlo.
+Cacheados: `medios-pago` (plugin propio, 5 minutos, se limpia sola al
+guardar los ajustes de pagos) y `entrega` (`ringopet-entrega`, 3 minutos,
+se limpia al entrar un pedido o tocar un ajuste de ORDDD — versión que
+instaló Benja directamente, sin tocar el plugin desde acá).
 
 ## Sin local ni dirección física
 
@@ -573,9 +610,16 @@ npm run preview  # sirve dist/ ya generado
 
 ## Pendiente / a confirmar con Benja antes de publicar en el sitio real
 
-- **Caché de `ringopet-entrega`**: propuesta lista (ver "Cuánto tardan los
-  endpoints" más arriba), no aplicada porque es el plugin que no se toca
-  sin avisar. Decime si la sumo.
+- **Instalar y activar `wp-plugin/ringopet-cuenta/`** en `prueba.ringopet.com.ar`
+  (ver "Mi cuenta" más arriba): sin esto, `/mi-cuenta/*` no tiene con qué
+  hablar del lado de WordPress. Falta correr ahí las pruebas de punta a
+  punta: login correcto/incorrecto y su límite de intentos, recuperar
+  contraseña (el link real del email, que no se pudo leer desde esta
+  sesión), cuenta nueva desde el pago con su email de "elegí tu
+  contraseña", ver pedidos y el detalle, intentar ver un pedido ajeno
+  cambiando el id, editar dirección y datos, cerrar sesión.
+- **Pagar un pedido pendiente** (`/mi-cuenta/order-pay/<id>/`) queda en
+  WordPress por ahora, sin página propia de Astro.
 - **Localidades del checkout** (`src/pages/finalizar-compra/index.astro`):
   no encontré de dónde las arma WooCommerce (no es un ajuste nativo ni de
   ningún plugin con API pública instalado). Quedaron escritas a mano,
