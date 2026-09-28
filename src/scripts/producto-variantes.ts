@@ -5,6 +5,8 @@
  * WooCommerce en el mismo origen (ej. npm run dev), el fetch falla en
  * silencio y queda el precio/stock generado en el build.
  */
+import { encabezadoNonce } from '../lib/tienda/sesion-navegador';
+
 export function iniciarSelectorVariantes() {
   const contenedor = document.querySelector<HTMLElement>('[data-producto]');
   if (!contenedor) return;
@@ -19,7 +21,7 @@ export function iniciarSelectorVariantes() {
   async function actualizar(id: string) {
     boton!.setAttribute('data-id', id);
     try {
-      const respuesta = await fetch(`/wp-json/wc/store/v1/products/${id}`, { headers: { Accept: 'application/json' } });
+      const respuesta = await fetch(`/wp-json/wc/store/v1/products/${id}`, { headers: { Accept: 'application/json', ...encabezadoNonce() } });
       if (!respuesta.ok) return;
       const producto = await respuesta.json();
       if (precioEl) {

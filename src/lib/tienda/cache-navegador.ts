@@ -43,3 +43,12 @@ export function leerMediosPagoCache(): RespuestaMediosPago | null {
     return null;
   }
 }
+
+/** Al cerrar sesión: el carrito de un cliente no debería quedar pintado para el siguiente visitante del navegador. */
+export function limpiarCarritoCache(): void {
+  try {
+    sessionStorage.removeItem(CLAVE_CARRITO);
+  } catch {
+    /* nada */
+  }
+}

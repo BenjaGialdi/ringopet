@@ -1,4 +1,5 @@
 /** Búsqueda en vivo contra la Store API (isla chica, sin backend propio). */
+import { encabezadoNonce } from '../lib/tienda/sesion-navegador';
 
 interface ProductoBusqueda {
   id: number;
@@ -57,7 +58,7 @@ export function iniciarBusqueda() {
     try {
       const respuesta = await fetch(`/wp-json/wc/store/v1/products?search=${encodeURIComponent(termino)}&per_page=24`, {
         signal: controlador.signal,
-        headers: { Accept: 'application/json' },
+        headers: { Accept: 'application/json', ...encabezadoNonce() },
       });
       const productos = (await respuesta.json()) as ProductoBusqueda[];
       listaEl.innerHTML = productos.map(tarjeta).join('');

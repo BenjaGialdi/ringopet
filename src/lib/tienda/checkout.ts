@@ -6,6 +6,7 @@
  */
 import { llamarApi } from './api-navegador';
 import { guardarCarritoCache, guardarMediosPagoCache } from './cache-navegador';
+import { encabezadoNonce } from './sesion-navegador';
 import type { DireccionCarrito, Disponibilidad, DetallePedido, RespuestaCheckout, Carrito, RespuestaMediosPago } from './tipos';
 
 export interface BorradorCheckout {
@@ -52,14 +53,14 @@ export async function actualizarMedioDePago(payment_method: string): Promise<Car
 }
 
 export async function obtenerDisponibilidadEntrega(): Promise<Disponibilidad> {
-  const respuesta = await fetch('/wp-json/ringopet/v1/entrega', { headers: { Accept: 'application/json' } });
+  const respuesta = await fetch('/wp-json/ringopet/v1/entrega', { headers: { Accept: 'application/json', ...encabezadoNonce() } });
   if (!respuesta.ok) throw new Error('No se pudo consultar la disponibilidad de entrega.');
   return respuesta.json();
 }
 
 export async function obtenerPedido(id: number, clave: string): Promise<DetallePedido> {
   const respuesta = await fetch(`/wp-json/ringopet/v1/pedido/${id}?key=${encodeURIComponent(clave)}`, {
-    headers: { Accept: 'application/json' },
+    headers: { Accept: 'application/json', ...encabezadoNonce() },
   });
   const cuerpo = await respuesta.json().catch(() => null);
   if (!respuesta.ok) throw new Error(cuerpo?.message ?? 'No encontramos ese pedido.');
@@ -68,7 +69,7 @@ export async function obtenerPedido(id: number, clave: string): Promise<DetalleP
 
 /** Título, descripción, ícono y texto de privacidad de cada medio de pago, tal cual WooCommerce > Ajustes > Pagos. */
 export async function obtenerMediosDePago(): Promise<RespuestaMediosPago> {
-  const respuesta = await fetch('/wp-json/ringopet/v1/medios-pago', { headers: { Accept: 'application/json' } });
+  const respuesta = await fetch('/wp-json/ringopet/v1/medios-pago', { headers: { Accept: 'application/json', ...encabezadoNonce() } });
   if (!respuesta.ok) throw new Error('No se pudieron consultar los medios de pago.');
   const datos = (await respuesta.json()) as RespuestaMediosPago;
   guardarMediosPagoCache(datos);

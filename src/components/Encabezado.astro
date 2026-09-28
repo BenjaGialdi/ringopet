@@ -176,8 +176,12 @@ const enlacesInfo = [
 
 <script>
   import { iniciarCarritoUI } from '../scripts/carrito-ui';
+  import { actualizarSesion } from '../lib/tienda/sesion-navegador';
 
   iniciarCarritoUI();
+  // En segundo plano, no bloquea nada: deja el nonce de WordPress listo para cuando haga
+  // falta (ver sesion-navegador.ts). Si falla o no hay sesión, el resto del sitio sigue igual.
+  actualizarSesion();
 
   // Menú lateral: abre/cierra como <dialog>, cierra con Escape (nativo), clic afuera o al elegir un enlace.
   const menu = document.querySelector<HTMLDialogElement>('[data-menu-lateral]');
