@@ -166,7 +166,7 @@ html.anim [data-reveal].visto {
 }
 
 /* Barra inferior fija (celular) y riel de categorías (escritorio, lg+): dejan lugar para
-   que nada del sitio quede tapado, ver Encabezado.astro y RielCategorias.astro. */
+   que nada del sitio quede tapado, ver BarraInferiorMobile.astro y PanelCategorias.astro. */
 body {
   padding-bottom: 60px;
 }
@@ -181,9 +181,9 @@ body {
   }
 }
 
-/* Desplegables del encabezado (menú de categorías y resultados de búsqueda en vivo): entran
-   con una transición corta, según ESTILO.md (150-250ms, nunca al mostrar un dato). */
-[data-menu-flyout],
+/* Resultados de búsqueda en vivo del encabezado: entran con una transición corta, según
+   ESTILO.md (150-250ms, nunca al mostrar un dato). El panel de categorías tiene su propia
+   transición vía clases de Tailwind (ver PanelCategorias.astro). */
 [data-panel-busqueda] {
   opacity: 0;
   transform: translateY(-6px);
@@ -191,15 +191,19 @@ body {
     opacity 0.2s ease-out,
     transform 0.2s ease-out;
 }
-[data-menu-flyout][data-abierto],
 [data-panel-busqueda][data-abierto] {
   opacity: 1;
   transform: none;
 }
 @media (prefers-reduced-motion: reduce) {
-  [data-menu-flyout],
   [data-panel-busqueda] {
     transition: none;
+  }
+  [data-panel-categorias],
+  [data-overlay-categorias],
+  [data-hijos-mm],
+  [data-flecha-mm] {
+    transition: none !important;
   }
 }
 

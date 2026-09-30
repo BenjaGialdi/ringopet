@@ -242,70 +242,96 @@ en vivo — el mismo límite que ya aplicaba a `/carrito/` y
 
 ## Revisión de diseño — tanda 1: estructura general del sitio
 
-Primera de 4 tandas de revisión visual (pedidas contra capturas reales de la
-tienda actual en WoodMart y de otras tiendas, sin copiarlas píxel a píxel).
-Esta tanda tocó la estructura del sitio entero, no una página puntual.
+Primera de 4 tandas de revisión visual, contra capturas reales de la tienda
+actual en WoodMart (`.scratch/revision/`, punto 01 de `revision.txt`) —
+pixel a pixel, no una idea a interpretar. Esta tanda tocó la estructura del
+sitio entero, no una página puntual. Capturas del resultado en
+`.scratch/revision/resultado/`.
 
 - **Ancho**: `.contenedor` pasó de `max-w-6xl` (1152px) a `max-w-[1600px]`,
   con más padding lateral en pantallas grandes (`lg:px-10`). Probado de
   360px a 2560px.
-- **Riel de categorías fijo** (`src/components/RielCategorias.astro`,
-  solo `lg:` en adelante): columna angosta a la izquierda, un ícono por
-  categoría principal, que al pasar el mouse despliega sus subcategorías en
-  columnas en cascada hacia la derecha (hasta 3 niveles, como en la
-  referencia). `body` lleva `lg:padding-left` para que el resto del sitio
-  no quede tapado.
-- **Desplegable "Categorías" del encabezado** (botón naranja redondeado,
-  como el carrito y el buscador): mismo árbol en cascada que el riel,
-  compartido por los dos en un solo componente recursivo
-  (`src/components/MenuCategoriasArbol.astro`, usa `Astro.self`) para no
-  tener dos implementaciones del mismo menú.
-- **Íconos de categoría**: WoodMart no expone esto en ninguna API pública
-  (ni term meta de `product_cat` ni los ítems de menú con imagen, como el
-  de Conejos, son legibles sin sesión — `wp/v2/menu-items` devuelve 401 a
-  un visitante anónimo). `GET /wp-json/ringopet/v1/categorias-iconos` en
-  `wp-plugin/ringopet-regenerar` (de solo lectura, sin datos sensibles) las
-  lee del lado del servidor. Claves reales de WoodMart, confirmadas con
-  `get_term_meta` sobre una categoría cargada de verdad (726, "Accesorios"
-  de Gatos): **`category_icon`** (Icono de categoría, el chico, el que usan
-  los menús) y **`category_icon_alt`** (Icono de categoría grande, respaldo
-  si falta el chico) — cada uno un array con `url` y/o `id` de adjunto.
-  Ojo con esto: `get_term_meta($id)` **sin** una clave puntual (pidiendo
-  "todo" el meta de una) no deserializa los valores — hay que pedir
-  `get_term_meta($id, 'category_icon', true)` clave por clave para recibir
-  el array ya armado en vez del string serializado crudo (`a:2:{...}`); el
-  primer intento fallaba por esto, no solo por no saber el nombre del
-  campo. Si ninguno de los dos está cargado, respaldo: la imagen de un
-  ítem de menú que enlace a esa categoría (clave de ese meta todavía sin
-  confirmar, se busca por patrón). La caché (`transient`, 1 hora) se limpia
-  sola al editar o crear una categoría, al editar un menú y, para el
+- **Íconos de categoría**: WoodMart los guarda en dos campos propios del
+  término (`product_cat`), "Icono de categoría" e "Icono de categoría
+  grande" — confirmado con `get_term_meta` sobre una categoría cargada de
+  verdad (726, "Accesorios" de Gatos). Claves reales:
+  **`category_icon`** (chico) y **`category_icon_alt`** (grande), cada uno
+  un array con `url` y/o `id` de adjunto. Dos motivos por los que el primer
+  intento devolvía `[]`: no se conocía el nombre de la clave (se buscaba
+  cualquier meta con "icon" en el nombre) y, aparte,
+  `get_term_meta($id)` **sin** pedir una clave puntual no deserializa los
+  valores (queda el string serializado crudo `a:2:{...}`) — hay que pedir
+  `get_term_meta($id, 'category_icon', true)` clave por clave.
+  `GET /wp-json/ringopet/v1/categorias-iconos` (`wp-plugin/ringopet-regenerar`,
+  de solo lectura) devuelve `{ "<id>": { "chico": "<url>|null", "grande":
+  "<url>|null" } }` — los menús usan `iconoMenu()` (`categorias.ts`): el
+  chico y, si falta, el grande; si no hay ninguno, sin ícono (nunca se
+  inventa ni queda un hueco). Respaldo si la categoría no tiene ningún
+  campo de WoodMart cargado: la imagen de un ítem de menú que enlace a ella
+  (ej. Conejos, cargado en Apariencia > Menús — clave de ese meta todavía
+  sin confirmar, se busca por patrón). La caché (`transient`, 1 hora) se
+  limpia sola al editar o crear una categoría, al editar un menú y, para el
   primer pedido después de cada publicación (no hay hook de "se actualizó
   el plugin" al subir por FTP), comparando `RINGOPET_ICONOS_VERSION` contra
   una opción guardada.
 - **Solo categorías con stock**: `categoriasConStock()` en
   `src/lib/tienda/categorias.ts` calcula, a partir del catálogo con stock
   ya cacheado (no un fetch aparte), qué categorías (con sus ancestros)
-  tienen al menos un producto — se usa en el riel, el desplegable y el
-  menú de celular.
-- **"Iniciar sesión / Registrarse" / "Hola, {nombre}"**: el enlace de
-  escritorio pinta el texto por defecto en el HTML y lo corrige con la
-  sesión cacheada al instante (sin esperar al servidor), igual criterio
-  que el resto del sitio con `sessionStorage` (ver "Mi cuenta" más abajo).
-- **Celular — barra inferior fija** (`src/components/BarraInferiorMobile.astro`):
-  Menú, Carrito, Mi cuenta. "Menú" abre el mismo `<dialog>` de siempre
-  (ahora con los íconos de categoría cuando existen); "Carrito" reusa
-  `[data-abrir-carrito]`, ya delegado desde `carrito-ui.ts`; "Mi cuenta" es
-  nueva. La tanda 2 agrega ahí mismo un botón "Filtros" en las páginas de
-  listado (el `<nav>` ya es un `flex`, no hace falta preparar nada más).
-- **Panel "Mi cuenta" de celular** (nuevo `<dialog data-cuenta-lateral>` en
-  `Encabezado.astro`, desliza desde la derecha): mismo formulario de login
-  y mismo panel de accesos que `/mi-cuenta/`, generalizando
-  `iniciarPaginaCuentaInicio()` (`src/scripts/cuenta-inicio.ts`) para
-  aceptar una raíz (`root`, en vez de `document` sin acotar — mismo
-  criterio que el bug ya documentado de `/carrito/` con atributos
-  duplicados) y una opción `navegar` (en la página redirige a
-  `/mi-cuenta/`; en el panel se queda en la página actual y solo cambia lo
-  que muestra).
+  tienen al menos un producto — se usa en el riel, el panel y el menú de
+  celular.
+- **Encabezado de compu, en una sola fila** (`Encabezado.astro`): logo de
+  56px de alto, botón "Categorías" (píldora naranja), buscador tipo
+  píldora, enlace "Productos" con ícono (a `/tienda/`), espacio flexible,
+  ícono de usuario + "Iniciar sesión / Registrarse" (o "Hola, {nombre}",
+  pintado al instante desde la sesión cacheada en `sessionStorage`) y el
+  carrito como círculo naranja de 44px con la cantidad en un globito
+  blanco. Sin segunda fila de enlaces debajo.
+- **Riel + panel de categorías de compu** (`src/components/PanelCategorias.astro`
+  + `src/scripts/panel-categorias.ts`, un solo sistema: el botón
+  "Categorías" del encabezado abre el mismo panel que el riel): riel fijo
+  de 64px con solo íconos (24px, sin texto, tooltip con el nombre); al
+  pasar el mouse se abre un panel blanco de 280px que desliza desde la
+  izquierda (200ms) con el fondo oscurecido al 40%; adentro, las
+  categorías principales (ícono 20px, nombre 15px, flecha) en filas de
+  44px; al pasar sobre una fila con hijas, una tarjeta se arma **en
+  JavaScript** (no con CSS `:hover` puro, por las tres cosas que pedían:
+  alinearse con la fila exacta, nunca superponerse entre columnas — se
+  posicionan en cascada con `getBoundingClientRect()`, cada una arranca
+  donde termina la anterior — y cerrar con 300ms de demora). Un solo
+  `mouseenter`/`mouseleave` en el contenedor de todo el sistema (riel +
+  panel + tarjetas, aunque estas últimas estén fuera del riel
+  visualmente: al ser descendientes del mismo contenedor, `mouseleave` no
+  se dispara al pasar de una a otra) cancela o programa el cierre; el
+  fondo oscurecido también programa el cierre al entrar y cierra al clic.
+  Escape cierra siempre. `body` lleva `lg:padding-left: 64px` para que el
+  resto del sitio no quede tapado por el riel.
+  - **Bug real que costó encontrar**: Tailwind v4 separó `translate` de
+    `transform` en dos propiedades CSS distintas (antes iban compuestas en
+    `transform`). La clase `-translate-x-full` del panel usa la propiedad
+    `translate`, no `transform` — el primer intento de abrir/cerrar el
+    panel por JS hacía `element.style.transform = 'none'`, que no pisaba
+    nada (la propiedad real seguía en `translate: -100%`) y el panel nunca
+    se movía, aunque `hidden` sí cambiaba. Si se toca esta animación de
+    nuevo, hay que tocar `element.style.translate`, no `.transform`.
+- **Menú de celular, panel desde la izquierda (85vw, máx. 360px)**
+  (`<dialog data-menu-lateral>` en `Encabezado.astro`): buscador arriba;
+  pestañas "CATEGORÍAS"/"MENÚ" (la de Menú lleva Nosotros, Contacto,
+  Envíos y preguntas frecuentes y Mayorista); filas de 50px con ícono +
+  nombre y, si tiene hijas, un botón cuadrado de 50px con flecha aparte
+  (no hace falta tocar la fila entera para desplegar, y la fila sigue
+  siendo un enlace normal a la categoría). Al desplegar, el botón se pone
+  naranja con la flecha rotada y las hijas aparecen con una animación de
+  alto (`grid-template-rows: 0fr → 1fr`, sin medir nada a mano) — recursivo
+  para cualquier profundidad (`src/components/FilaMenuMobile.astro` +
+  `src/scripts/menu-mobile.ts`).
+- **Panel "Mi cuenta" de celular** (`<dialog data-cuenta-lateral>`,
+  desliza desde la derecha): mismo formulario de login y mismo panel de
+  accesos que `/mi-cuenta/`, generalizando `iniciarPaginaCuentaInicio()`
+  (`src/scripts/cuenta-inicio.ts`) para aceptar una raíz (`root`, en vez de
+  `document` sin acotar — mismo criterio que el bug ya documentado de
+  `/carrito/` con atributos duplicados) y una opción `navegar` (en la
+  página redirige a `/mi-cuenta/`; en el panel se queda en la página
+  actual y solo cambia lo que muestra).
 - **Buscador en vivo del encabezado** (`src/scripts/busqueda-header.ts`):
   a diferencia de `/busqueda/` (que pega contra la Store API en vivo), usa
   el JSON que ya se pide para `/tienda/` (`datos.json.ts`) — sin esperar al
@@ -318,11 +344,16 @@ Esta tanda tocó la estructura del sitio entero, no una página puntual.
 - **Botón de WhatsApp flotante**: se corrió hacia arriba en celular
   (`bottom` con `calc()`) para no quedar tapado por la barra inferior
   nueva; en compu sigue en su lugar de siempre.
-- **Menú de categorías del header/riel**: solo se probó contra el catálogo
-  de `prueba.ringopet.com.ar` sin íconos cargados (ver arriba). Falta
-  volver a mirarlo una vez que el plugin esté activo y alguna categoría
-  tenga un ícono real cargado en WordPress, para confirmar que
-  `ringopet_icono_desde_meta()` efectivamente lo encuentra.
+- **No pude verificar al 100%**: las herramientas de este entorno para
+  probar en el navegador (capturas y clics simulados) fallan de forma
+  consistente apenas se cambia el tamaño de la ventana a un ancho de
+  escritorio (parece un problema del entorno de pruebas, no del sitio: a
+  tamaño de celular, sin tocar el tamaño de ventana, los clics andan
+  perfecto). Verifiqué el panel de compu inspeccionando el DOM directamente
+  (posición, tamaño, estilos calculados — todo correcto) en vez de con una
+  captura, y el encabezado de compu sí se pudo capturar antes de que
+  apareciera el problema (calza con la referencia). Conviene que lo mires
+  vos en un navegador real antes de darlo por cerrado del todo.
 - Lighthouse de portada/listado/producto: no se pudo correr en esta vuelta
   (requiere el sitio publicado, no `npm run preview` sin WooCommerce) —
   sigue pendiente junto con el resto de `/tienda/` (ver la sección de

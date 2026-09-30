@@ -1,0 +1,46 @@
+---
+/**
+ * Fila del menú de categorías del celular (panel izquierdo, pestaña "Categorías"): ícono +
+ * nombre + botón cuadrado de 50px con flecha si tiene hijas, que despliegan debajo con
+ * animación de alto (ver src/scripts/menu-mobile.ts). Recursivo con Astro.self para
+ * cualquier profundidad del árbol real (hoy 3 niveles: Perros > Alimentos > Húmedos).
+ */
+import type { NodoArbolCategoria } from '../lib/tienda/categorias';
+
+interface Props {
+  nodo: NodoArbolCategoria;
+}
+
+const { nodo } = Astro.props;
+---
+
+<div class="border-b border-borde" data-fila-mm data-id={nodo.id}>
+  <div class="flex h-[50px] items-center">
+    <a href={nodo.ruta} class="flex h-full min-w-0 flex-1 items-center gap-3 px-2">
+      {nodo.icono ? <img src={nodo.icono} alt="" width="22" height="22" loading="lazy" class="h-[22px] w-[22px] shrink-0 object-contain" /> : <span class="h-[22px] w-[22px] shrink-0" />}
+      <span class="min-w-0 flex-1 truncate">{nodo.nombre}</span>
+    </a>
+    {
+      nodo.hijos.length > 0 && (
+        <button type="button" data-boton-expandir-mm aria-expanded="false" aria-label={`Ver subcategorías de ${nodo.nombre}`} class="flex h-[50px] w-[50px] shrink-0 items-center justify-center border-l border-borde text-texto-suave transition-colors data-[abierto]:bg-primario data-[abierto]:text-sobre-primario">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" class="transition-transform" data-flecha-mm aria-hidden="true" focusable="false">
+            <path d="m9 6 6 6-6 6" />
+          </svg>
+        </button>
+      )
+    }
+  </div>
+  {
+    nodo.hijos.length > 0 && (
+      <div data-hijos-mm style="display:grid;grid-template-rows:0fr;transition:grid-template-rows 200ms ease">
+        <div class="overflow-hidden">
+          <div class="pl-4">
+            {nodo.hijos.map((hijo) => (
+              <Astro.self nodo={hijo} />
+            ))}
+          </div>
+        </div>
+      </div>
+    )
+  }
+</div>

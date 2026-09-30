@@ -96,14 +96,20 @@ export function categoriasConStock(categorias: Categoria[], productosEnStock: Pi
   return ids;
 }
 
-let cacheIconos: Record<number, string> | null = null;
+export interface IconosCategoria {
+  chico: string | null;
+  grande: string | null;
+}
+
+let cacheIconos: Record<number, IconosCategoria> | null = null;
 
 /**
  * Íconos de categoría cargados en WordPress (ver wp-plugin/ringopet-regenerar:
- * GET /wp-json/ringopet/v1/categorias-iconos). Si una categoría no tiene ícono cargado, no
- * se inventa uno ni se muestra un genérico: el llamador simplemente no pinta nada ahí.
+ * GET /wp-json/ringopet/v1/categorias-iconos — devuelve el chico y el grande de WoodMart por
+ * separado). Si una categoría no tiene ninguno cargado, no se inventa uno ni se muestra un
+ * genérico: el llamador simplemente no pinta nada ahí.
  */
-export async function obtenerIconosCategorias(): Promise<Record<number, string>> {
+export async function obtenerIconosCategorias(): Promise<Record<number, IconosCategoria>> {
   if (cacheIconos) return cacheIconos;
   try {
     const respuesta = await fetch(`${WOO_URL}/wp-json/ringopet/v1/categorias-iconos`, { headers: { Accept: 'application/json' } });
@@ -113,4 +119,36 @@ export async function obtenerIconosCategorias(): Promise<Record<number, string>>
     cacheIconos = {};
   }
   return cacheIconos ?? {};
+}
+
+/** El chico para menús; si falta, el grande; si no hay ninguno, null (nunca un genérico de relleno). */
+export function iconoMenu(iconos: Record<number, IconosCategoria>, categoriaId: number): string | null {
+  const par = iconos[categoriaId];
+  return par?.chico ?? par?.grande ?? null;
+}
+
+export interface NodoArbolCategoria {
+  id: number;
+  nombre: string;
+  ruta: string;
+  icono: string | null;
+  hijos: NodoArbolCategoria[];
+}
+
+/** Arma el árbol de categorías con stock (propio y de sus hijas) con el ícono de menú ya resuelto, para el panel compartido del riel y del botón "Categorías" (ver PanelCategorias.astro). */
+export function arbolCategoriasConStock(
+  todas: Categoria[],
+  items: Categoria[],
+  conStock: Set<number>,
+  iconos: Record<number, IconosCategoria>,
+): NodoArbolCategoria[] {
+  return items
+    .filter((c) => conStock.has(c.id))
+    .map((c) => ({
+      id: c.id,
+      nombre: c.name,
+      ruta: rutaLocal(c.permalink),
+      icono: iconoMenu(iconos, c.id),
+      hijos: arbolCategoriasConStock(todas, hijasDe(todas, c.id), conStock, iconos),
+    }));
 }

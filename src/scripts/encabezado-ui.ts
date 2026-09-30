@@ -1,48 +1,11 @@
 /**
  * Todo lo nuevo del encabezado que no era del carrito ni del menú lateral de siempre:
- * desplegable "Categorías" de compu, etiqueta de sesión ("Iniciar sesión..." / "Hola, x") y
- * los disparadores de la barra inferior de celular (Menú y Mi cuenta).
+ * etiqueta de sesión ("Iniciar sesión..." / "Hola, x") y los disparadores de la barra
+ * inferior de celular (Menú y Mi cuenta). El panel de categorías vive en
+ * src/scripts/panel-categorias.ts (riel + botón "Categorías" del encabezado, mismo panel).
  */
 import { sesionCacheada, actualizarSesion } from '../lib/tienda/sesion-navegador';
 import { iniciarPaginaCuentaInicio } from './cuenta-inicio';
-
-function abrir(panel: HTMLElement) {
-  panel.hidden = false;
-  requestAnimationFrame(() => panel.setAttribute('data-abierto', ''));
-}
-function cerrar(panel: HTMLElement) {
-  panel.removeAttribute('data-abierto');
-  panel.hidden = true;
-}
-
-function iniciarFlyoutCategorias() {
-  const boton = document.querySelector<HTMLButtonElement>('[data-abrir-menu-flyout]');
-  const panel = document.querySelector<HTMLElement>('[data-menu-flyout]');
-  if (!boton || !panel) return;
-
-  boton.addEventListener('click', () => {
-    if (panel.hidden) {
-      abrir(panel);
-      boton.setAttribute('aria-expanded', 'true');
-    } else {
-      cerrar(panel);
-      boton.setAttribute('aria-expanded', 'false');
-    }
-  });
-  document.addEventListener('click', (e) => {
-    if (!panel.hidden && !panel.contains(e.target as Node) && !boton.contains(e.target as Node)) {
-      cerrar(panel);
-      boton.setAttribute('aria-expanded', 'false');
-    }
-  });
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && !panel.hidden) {
-      cerrar(panel);
-      boton.setAttribute('aria-expanded', 'false');
-      boton.focus();
-    }
-  });
-}
 
 /** "Iniciar sesión / Registrarse" o "Hola, {nombre}", sin esperar al servidor si ya hay una copia guardada. */
 function iniciarEtiquetaSesion() {
@@ -91,7 +54,6 @@ function iniciarPanelesMobile() {
 }
 
 export function iniciarEncabezadoUI() {
-  iniciarFlyoutCategorias();
   iniciarEtiquetaSesion();
   iniciarPanelesMobile();
 }
