@@ -1,6 +1,6 @@
-import { obtenerTodasLasPaginas } from './cliente';
+import { obtenerTodasLasPaginas, WOO_URL } from './cliente';
 import { decodificarEntidades } from '../texto';
-import type { Categoria } from './tipos';
+import type { Categoria, Producto } from './tipos';
 
 let cache: Categoria[] | null = null;
 
@@ -83,4 +83,34 @@ export function idsConAncestros(categorias: Categoria[], idsPropios: number[]): 
 export function descendientesDe(categorias: Categoria[], padreId: number): Categoria[] {
   const directas = hijasDe(categorias, padreId);
   return directas.flatMap((h) => [h, ...descendientesDe(categorias, h.id)]);
+}
+
+/** IDs de categorías (propias y ancestras) que tienen al menos un producto con stock — para no listar categorías vacías en ningún menú. */
+export function categoriasConStock(categorias: Categoria[], productosEnStock: Pick<Producto, 'categories'>[]): Set<number> {
+  const ids = new Set<number>();
+  for (const p of productosEnStock) {
+    for (const id of idsConAncestros(categorias, p.categories.map((c) => c.id))) {
+      ids.add(id);
+    }
+  }
+  return ids;
+}
+
+let cacheIconos: Record<number, string> | null = null;
+
+/**
+ * Íconos de categoría cargados en WordPress (ver wp-plugin/ringopet-regenerar:
+ * GET /wp-json/ringopet/v1/categorias-iconos). Si una categoría no tiene ícono cargado, no
+ * se inventa uno ni se muestra un genérico: el llamador simplemente no pinta nada ahí.
+ */
+export async function obtenerIconosCategorias(): Promise<Record<number, string>> {
+  if (cacheIconos) return cacheIconos;
+  try {
+    const respuesta = await fetch(`${WOO_URL}/wp-json/ringopet/v1/categorias-iconos`, { headers: { Accept: 'application/json' } });
+    cacheIconos = respuesta.ok ? await respuesta.json() : {};
+  } catch {
+    // Sin WooCommerce en este origen (ej. dev local) o plugin no instalado todavía: sin íconos, nunca rompe el build.
+    cacheIconos = {};
+  }
+  return cacheIconos ?? {};
 }

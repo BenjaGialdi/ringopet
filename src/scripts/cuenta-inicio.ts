@@ -1,15 +1,25 @@
-/** Página /mi-cuenta/: login si no hay sesión, saludo + últimos pedidos si la hay. */
+/**
+ * Login si no hay sesión, saludo + últimos pedidos si la hay: lo usan tanto /mi-cuenta/
+ * (root = document) como el panel "Mi cuenta" del celular en Encabezado.astro (root = el
+ * <dialog> del panel, para no colisionar con los mismos data-* de la página si ambos están
+ * en el DOM a la vez — mismo criterio que pintarUnResumen() en pagina-checkout.ts).
+ */
 import { actualizarSesion, sesionCacheada, ingresar, salir, ErrorCuenta } from '../lib/tienda/cuenta';
 import { formatearPrecio } from '../lib/moneda';
 import { lineaEstadoHtml } from '../lib/tienda/linea-estado';
 import type { PedidoResumen } from '../lib/tienda/tipos';
 
-export function iniciarPaginaCuentaInicio() {
-  const esqueleto = document.querySelector<HTMLElement>('[data-cuenta-esqueleto]');
-  const formIngresar = document.querySelector<HTMLFormElement>('[data-form-ingresar]');
-  const panel = document.querySelector<HTMLElement>('[data-panel-cuenta]');
-  const errorEl = document.querySelector<HTMLElement>('[data-ingresar-error]');
-  const boton = document.querySelector<HTMLButtonElement>('[data-boton-ingresar]');
+interface Opciones {
+  /** true (default, /mi-cuenta/): navega a /mi-cuenta/ (o ?volver=) al ingresar/salir. false (panel del celular): se queda en la página y solo cambia lo que muestra el panel. */
+  navegar?: boolean;
+}
+
+export function iniciarPaginaCuentaInicio(root: ParentNode = document, { navegar = true }: Opciones = {}) {
+  const esqueleto = root.querySelector<HTMLElement>('[data-cuenta-esqueleto]');
+  const formIngresar = root.querySelector<HTMLFormElement>('[data-form-ingresar]');
+  const panel = root.querySelector<HTMLElement>('[data-panel-cuenta]');
+  const errorEl = root.querySelector<HTMLElement>('[data-ingresar-error]');
+  const boton = root.querySelector<HTMLButtonElement>('[data-boton-ingresar]');
   if (!esqueleto || !formIngresar || !panel) return;
 
   // El email de "elegí tu contraseña" y el de recuperación de WordPress pueden apuntar
@@ -86,7 +96,10 @@ export function iniciarPaginaCuentaInicio() {
     boton?.setAttribute('disabled', 'true');
     try {
       const sesion = await ingresar(String(datos.get('usuario') ?? ''), String(datos.get('clave') ?? ''), datos.get('recordarme') === 'on');
-      if (sesion.sesion) irA('/mi-cuenta/');
+      if (sesion.sesion) {
+        if (navegar) irA('/mi-cuenta/');
+        else mostrarPanel(sesion.nombre ?? '', sesion.resumen?.pedidos ?? []);
+      }
     } catch (error) {
       if (errorEl) errorEl.textContent = error instanceof ErrorCuenta ? error.message : 'No pudimos iniciar sesión.';
     } finally {
@@ -98,7 +111,13 @@ export function iniciarPaginaCuentaInicio() {
     try {
       await salir();
     } finally {
-      location.href = '/mi-cuenta/';
+      if (navegar) {
+        location.href = '/mi-cuenta/';
+      } else {
+        panel!.hidden = true;
+        formIngresar!.hidden = false;
+        formIngresar!.reset();
+      }
     }
   });
 }

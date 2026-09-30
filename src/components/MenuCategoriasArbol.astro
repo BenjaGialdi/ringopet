@@ -1,0 +1,62 @@
+---
+/**
+ * Columna de categorías con ícono, usada en cascada hacia la derecha (cada nivel abre el
+ * siguiente en hover/foco): la comparten el desplegable "Categorías" del encabezado y el
+ * riel fijo de escritorio (src/components/RielCategorias.astro), para no tener dos
+ * implementaciones del mismo árbol. Solo categorías con stock (ver categoriasConStock en
+ * src/lib/tienda/categorias.ts) y solo íconos realmente cargados en WordPress: sin ícono, sin
+ * hueco ni genérico de relleno.
+ */
+import { hijasDe, rutaLocal } from '../lib/tienda/categorias';
+import type { Categoria } from '../lib/tienda/tipos';
+
+interface Props {
+  todas: Categoria[];
+  items: Categoria[];
+  conStock: Set<number>;
+  iconos: Record<number, string>;
+  /** Raíz del riel: solo ícono, el nombre aparece recién en la columna que se despliega. */
+  soloIcono?: boolean;
+}
+
+const { todas, items, conStock, iconos, soloIcono = false } = Astro.props;
+const visibles = items.filter((c) => conStock.has(c.id));
+---
+
+<ul class:list={['min-w-max', soloIcono ? 'flex flex-col items-center gap-3' : 'space-y-0.5 p-2']}>
+  {
+    visibles.map((cat) => {
+      const hijas = hijasDe(todas, cat.id);
+      const icono = iconos[cat.id];
+      return (
+        <li class="group/rama relative">
+          <a
+            href={rutaLocal(cat.permalink)}
+            class:list={[
+              'flex items-center gap-2.5 rounded-lg font-medium transition-colors hover:bg-fondo-suave hover:text-primario-oscuro',
+              soloIcono ? 'flex-col px-1 py-2 text-center text-[11px] leading-tight' : 'px-3 py-2 text-sm whitespace-nowrap',
+            ]}
+          >
+            {icono ? (
+              <img src={icono} alt="" width="28" height="28" loading="lazy" class="h-7 w-7 shrink-0 object-contain" />
+            ) : (
+              !soloIcono && <span class="h-7 w-7 shrink-0" />
+            )}
+            <span class={soloIcono ? 'line-clamp-2' : ''}>{cat.name}</span>
+          </a>
+
+          {hijas.length > 0 && (
+            <div
+              class:list={[
+                'invisible absolute top-0 z-20 -translate-x-1 rounded-xl border border-borde bg-fondo opacity-0 shadow-xl transition-all duration-150 group-hover/rama:visible group-hover/rama:translate-x-0 group-hover/rama:opacity-100 group-focus-within/rama:visible group-focus-within/rama:translate-x-0 group-focus-within/rama:opacity-100',
+                soloIcono ? 'left-full ml-1' : 'left-full ml-0.5',
+              ]}
+            >
+              <Astro.self todas={todas} items={hijas} conStock={conStock} iconos={iconos} />
+            </div>
+          )}
+        </li>
+      );
+    })
+  }
+</ul>

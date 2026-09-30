@@ -42,7 +42,7 @@
 
 @layer components {
   .contenedor {
-    @apply mx-auto w-full max-w-6xl px-4 sm:px-6;
+    @apply mx-auto w-full max-w-[1600px] px-4 sm:px-6 lg:px-10;
   }
   /* Fondo primario-oscuro (no primario) para que el texto blanco llegue a 4.5:1 de contraste (AA). */
   .boton {
@@ -87,9 +87,10 @@ html.anim [data-reveal].visto {
   transform: none;
 }
 
-/* Paneles laterales (menú y carrito): <dialog> anclado al borde, que entra con deslizamiento. */
+/* Paneles laterales (menú, carrito, mi cuenta): <dialog> anclado al borde, que entra con deslizamiento. */
 [data-menu-lateral],
-[data-carrito-lateral] {
+[data-carrito-lateral],
+[data-cuenta-lateral] {
   position: fixed;
   inset-block: 0;
   margin: 0;
@@ -104,34 +105,40 @@ html.anim [data-reveal].visto {
 [data-menu-lateral] {
   inset-inline-start: 0;
 }
-[data-carrito-lateral] {
+[data-carrito-lateral],
+[data-cuenta-lateral] {
   inset-inline-end: 0;
   transform: translateX(100%);
 }
 [data-menu-lateral][open],
-[data-carrito-lateral][open] {
+[data-carrito-lateral][open],
+[data-cuenta-lateral][open] {
   transform: none;
   opacity: 1;
 }
 @starting-style {
   [data-menu-lateral][open],
-  [data-carrito-lateral][open] {
+  [data-carrito-lateral][open],
+  [data-cuenta-lateral][open] {
     opacity: 0;
   }
   [data-menu-lateral][open] {
     transform: translateX(-100%);
   }
-  [data-carrito-lateral][open] {
+  [data-carrito-lateral][open],
+  [data-cuenta-lateral][open] {
     transform: translateX(100%);
   }
 }
 [data-menu-lateral]::backdrop,
-[data-carrito-lateral]::backdrop {
+[data-carrito-lateral]::backdrop,
+[data-cuenta-lateral]::backdrop {
   transition: opacity 0.35s ease-out;
   opacity: 0;
 }
 [data-menu-lateral][open]::backdrop,
-[data-carrito-lateral][open]::backdrop {
+[data-carrito-lateral][open]::backdrop,
+[data-cuenta-lateral][open]::backdrop {
   opacity: 1;
 }
 /* Enlaces del menú lateral: entran escalonados (el retraso lo pone cada <li> inline). */
@@ -155,6 +162,44 @@ html.anim [data-reveal].visto {
   }
   [data-menu-lateral] [data-r] {
     animation: none;
+  }
+}
+
+/* Barra inferior fija (celular) y riel de categorías (escritorio, lg+): dejan lugar para
+   que nada del sitio quede tapado, ver Encabezado.astro y RielCategorias.astro. */
+body {
+  padding-bottom: 60px;
+}
+@media (min-width: 768px) {
+  body {
+    padding-bottom: 0;
+  }
+}
+@media (min-width: 1024px) {
+  body {
+    padding-left: 64px;
+  }
+}
+
+/* Desplegables del encabezado (menú de categorías y resultados de búsqueda en vivo): entran
+   con una transición corta, según ESTILO.md (150-250ms, nunca al mostrar un dato). */
+[data-menu-flyout],
+[data-panel-busqueda] {
+  opacity: 0;
+  transform: translateY(-6px);
+  transition:
+    opacity 0.2s ease-out,
+    transform 0.2s ease-out;
+}
+[data-menu-flyout][data-abierto],
+[data-panel-busqueda][data-abierto] {
+  opacity: 1;
+  transform: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-menu-flyout],
+  [data-panel-busqueda] {
+    transition: none;
   }
 }
 

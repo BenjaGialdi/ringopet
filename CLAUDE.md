@@ -240,6 +240,84 @@ Pendiente de medir (no se pudo en esta sesión): Lighthouse móvil real de
 en vivo — el mismo límite que ya aplicaba a `/carrito/` y
 `/finalizar-compra/`, ver más abajo).
 
+## Revisión de diseño — tanda 1: estructura general del sitio
+
+Primera de 4 tandas de revisión visual (pedidas contra capturas reales de la
+tienda actual en WoodMart y de otras tiendas, sin copiarlas píxel a píxel).
+Esta tanda tocó la estructura del sitio entero, no una página puntual.
+
+- **Ancho**: `.contenedor` pasó de `max-w-6xl` (1152px) a `max-w-[1600px]`,
+  con más padding lateral en pantallas grandes (`lg:px-10`). Probado de
+  360px a 2560px.
+- **Riel de categorías fijo** (`src/components/RielCategorias.astro`,
+  solo `lg:` en adelante): columna angosta a la izquierda, un ícono por
+  categoría principal, que al pasar el mouse despliega sus subcategorías en
+  columnas en cascada hacia la derecha (hasta 3 niveles, como en la
+  referencia). `body` lleva `lg:padding-left` para que el resto del sitio
+  no quede tapado.
+- **Desplegable "Categorías" del encabezado** (botón naranja redondeado,
+  como el carrito y el buscador): mismo árbol en cascada que el riel,
+  compartido por los dos en un solo componente recursivo
+  (`src/components/MenuCategoriasArbol.astro`, usa `Astro.self`) para no
+  tener dos implementaciones del mismo menú.
+- **Íconos de categoría**: WoodMart no expone esto en ninguna API pública
+  (ni term meta de `product_cat` ni los ítems de menú con imagen, como el
+  de Conejos, son legibles sin sesión — `wp/v2/menu-items` devuelve 401 a
+  un visitante anónimo). Se agregó `GET /wp-json/ringopet/v1/categorias-iconos`
+  en `wp-plugin/ringopet-regenerar` (de solo lectura, sin datos sensibles):
+  revisa cualquier meta del término (o, si no hay, de un ítem de menú que
+  enlace a esa categoría) cuyo nombre contenga "icon" y la resuelve a una
+  URL de imagen — no se conocía de antes la clave exacta que usa WoodMart,
+  así que se buscó por patrón en vez de adivinar una constante. **Falta
+  instalar/activar esta versión del plugin en `prueba.ringopet.com.ar`**
+  para que devuelva algo: hoy el menú funciona igual, solo que sin íconos
+  (nunca se inventa uno ni queda un hueco, como se pidió).
+- **Solo categorías con stock**: `categoriasConStock()` en
+  `src/lib/tienda/categorias.ts` calcula, a partir del catálogo con stock
+  ya cacheado (no un fetch aparte), qué categorías (con sus ancestros)
+  tienen al menos un producto — se usa en el riel, el desplegable y el
+  menú de celular.
+- **"Iniciar sesión / Registrarse" / "Hola, {nombre}"**: el enlace de
+  escritorio pinta el texto por defecto en el HTML y lo corrige con la
+  sesión cacheada al instante (sin esperar al servidor), igual criterio
+  que el resto del sitio con `sessionStorage` (ver "Mi cuenta" más abajo).
+- **Celular — barra inferior fija** (`src/components/BarraInferiorMobile.astro`):
+  Menú, Carrito, Mi cuenta. "Menú" abre el mismo `<dialog>` de siempre
+  (ahora con los íconos de categoría cuando existen); "Carrito" reusa
+  `[data-abrir-carrito]`, ya delegado desde `carrito-ui.ts`; "Mi cuenta" es
+  nueva. La tanda 2 agrega ahí mismo un botón "Filtros" en las páginas de
+  listado (el `<nav>` ya es un `flex`, no hace falta preparar nada más).
+- **Panel "Mi cuenta" de celular** (nuevo `<dialog data-cuenta-lateral>` en
+  `Encabezado.astro`, desliza desde la derecha): mismo formulario de login
+  y mismo panel de accesos que `/mi-cuenta/`, generalizando
+  `iniciarPaginaCuentaInicio()` (`src/scripts/cuenta-inicio.ts`) para
+  aceptar una raíz (`root`, en vez de `document` sin acotar — mismo
+  criterio que el bug ya documentado de `/carrito/` con atributos
+  duplicados) y una opción `navegar` (en la página redirige a
+  `/mi-cuenta/`; en el panel se queda en la página actual y solo cambia lo
+  que muestra).
+- **Buscador en vivo del encabezado** (`src/scripts/busqueda-header.ts`):
+  a diferencia de `/busqueda/` (que pega contra la Store API en vivo), usa
+  el JSON que ya se pide para `/tienda/` (`datos.json.ts`) — sin esperar al
+  servidor, y ya son solo productos con stock. Desde 2 caracteres, con 200ms
+  de espera entre teclas. Desplegable con foto, marca, nombre y precio, más
+  "Ver todos los resultados" hacia `/busqueda/?q=...` (esa sí, en vivo, por
+  si cambió algo desde el build). En celular ocupa toda la pantalla (mismo
+  panel, con clases responsive en vez de un diálogo aparte) y se puede
+  navegar con flechas y cerrar con Escape.
+- **Botón de WhatsApp flotante**: se corrió hacia arriba en celular
+  (`bottom` con `calc()`) para no quedar tapado por la barra inferior
+  nueva; en compu sigue en su lugar de siempre.
+- **Menú de categorías del header/riel**: solo se probó contra el catálogo
+  de `prueba.ringopet.com.ar` sin íconos cargados (ver arriba). Falta
+  volver a mirarlo una vez que el plugin esté activo y alguna categoría
+  tenga un ícono real cargado en WordPress, para confirmar que
+  `ringopet_icono_desde_meta()` efectivamente lo encuentra.
+- Lighthouse de portada/listado/producto: no se pudo correr en esta vuelta
+  (requiere el sitio publicado, no `npm run preview` sin WooCommerce) —
+  sigue pendiente junto con el resto de `/tienda/` (ver la sección de
+  arriba).
+
 ## Imágenes
 
 Las de producto y categoría son las que genera WordPress (con su propio
