@@ -218,3 +218,20 @@ add_action('edited_product_cat', function (): void {
 add_action('wp_update_nav_menu', function (): void {
     delete_transient('ringopet_categorias_iconos');
 });
+
+/**
+ * TEMPORAL: GET /wp-json/ringopet/v1/_debug-meta-categoria?id=726
+ * Solo para encontrar las claves exactas que usa WoodMart para el ícono de categoría (ver
+ * CLAUDE.md, tanda 1 de la revisión de diseño). Se borra en el próximo push, una vez
+ * confirmadas las claves reales.
+ */
+add_action('rest_api_init', function (): void {
+    register_rest_route('ringopet/v1', '/_debug-meta-categoria', [
+        'methods' => 'GET',
+        'permission_callback' => '__return_true',
+        'callback' => function (WP_REST_Request $peticion) {
+            $id = (int) $peticion->get_param('id');
+            return rest_ensure_response(get_term_meta($id ?: 726));
+        },
+    ]);
+});
