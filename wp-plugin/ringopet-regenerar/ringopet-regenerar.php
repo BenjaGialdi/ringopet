@@ -134,13 +134,15 @@ function ringopet_purgar_cache_endpoint(WP_REST_Request $peticion) {
 /**
  * GET /wp-json/ringopet/v1/categorias-iconos
  * Íconos de categoría cargados en WordPress (el menú de categorías de Astro no inventa
- * ninguno: si una categoría no devuelve nada acá, se muestra sin ícono). WoodMart guarda el
- * ícono propio de cada categoría como meta del término (product_cat) y, aparte, algunos
- * ítems de menú (Apariencia > Menús) tienen su propia imagen — no hay una única clave fija
- * documentada por WoodMart para esto, así que se revisa cualquier meta cuyo nombre contenga
- * "icon" y, si el valor es un ID de adjunto, se resuelve a su URL; si es una URL, se usa tal
- * cual. Devuelve { "<id de categoría>": "<url>" }. Información pública (ya se ve en el sitio
- * actual), sin datos sensibles: sin permission_callback restrictivo.
+ * ninguno: si una categoría no devuelve nada acá, se muestra sin ícono). WoodMart guarda los
+ * dos campos propios de cada categoría ("Icono de categoría" e "Icono de categoría grande")
+ * como term meta — claves confirmadas a mano con get_term_meta sobre una categoría real
+ * (726, "Accesorios" de Gatos): `category_icon` (chico) y `category_icon_alt` (grande), cada
+ * uno un array con 'url' y/o 'id' de adjunto. Ojo: get_term_meta($id) SIN clave (pidiendo
+ * todo el meta de una) no lo deserializa — hay que pedir cada clave puntual
+ * (get_term_meta($id, 'category_icon', true)) para recibir el array ya armado en vez del
+ * string serializado crudo. Devuelve { "<id de categoría>": "<url>" }. Información pública
+ * (ya se ve en el sitio actual), sin datos sensibles: sin permission_callback restrictivo.
  */
 add_action('rest_api_init', function (): void {
     register_rest_route('ringopet/v1', '/categorias-iconos', [
@@ -150,26 +152,63 @@ add_action('rest_api_init', function (): void {
     ]);
 });
 
-/** Primer meta cuyo nombre contenga "icon" que resuelva a una URL de imagen (ID de adjunto o URL directa). */
-function ringopet_icono_desde_meta(array $meta): ?string {
-    foreach ($meta as $clave => $valores) {
-        if (stripos($clave, 'icon') === false) {
-            continue;
+/** Valor de un campo de ícono de WoodMart (array con 'url'/'id') o de un meta genérico (ID de adjunto o URL) resuelto a una URL de imagen. */
+function ringopet_url_de_campo_icono($valor): ?string {
+    $valor = maybe_unserialize($valor);
+    if (is_array($valor)) {
+        if (!empty($valor['url']) && is_string($valor['url']) && preg_match('#^https?://#', $valor['url'])) {
+            return $valor['url'];
         }
-        $valor = is_array($valores) ? reset($valores) : $valores;
-        if (is_numeric($valor)) {
-            $url = wp_get_attachment_image_url((int) $valor, 'thumbnail');
-            if ($url) {
-                return $url;
-            }
-        } elseif (is_string($valor) && preg_match('#^https?://#', $valor)) {
-            return $valor;
+        if (!empty($valor['id'])) {
+            return wp_get_attachment_image_url((int) $valor['id'], 'thumbnail') ?: null;
+        }
+        return null;
+    }
+    if (is_numeric($valor)) {
+        return wp_get_attachment_image_url((int) $valor, 'thumbnail') ?: null;
+    }
+    if (is_string($valor) && preg_match('#^https?://#', $valor)) {
+        return $valor;
+    }
+    return null;
+}
+
+/** Ícono chico (category_icon) o, si falta, el grande (category_icon_alt) — los dos campos de WoodMart para el ícono de categoría. */
+function ringopet_icono_categoria(int $term_id): ?string {
+    foreach (['category_icon', 'category_icon_alt'] as $clave) {
+        $icono = ringopet_url_de_campo_icono(get_term_meta($term_id, $clave, true));
+        if ($icono) {
+            return $icono;
         }
     }
     return null;
 }
 
+/** Respaldo si la categoría no tiene ícono propio de WoodMart: la imagen de un ítem de menú que enlaza a ella (ej. Conejos, cargado en Apariencia > Menús) — clave desconocida, se busca por patrón. */
+function ringopet_icono_de_item_menu(int $post_id): ?string {
+    foreach (get_post_meta($post_id) as $clave => $valores) {
+        if (stripos($clave, 'icon') === false) {
+            continue;
+        }
+        $icono = ringopet_url_de_campo_icono(is_array($valores) ? reset($valores) : $valores);
+        if ($icono) {
+            return $icono;
+        }
+    }
+    return null;
+}
+
+// Subir este número invalida la caché sola en el próximo pedido después de publicar, sin
+// esperar a que venza el transient ni depender de un hook de "actualizar plugin" que no
+// existe (esto se sube por FTP, no por el actualizador de WordPress).
+define('RINGOPET_ICONOS_VERSION', 2);
+
 function ringopet_categorias_iconos_endpoint() {
+    if ((int) get_option('ringopet_iconos_version') !== RINGOPET_ICONOS_VERSION) {
+        delete_transient('ringopet_categorias_iconos');
+        update_option('ringopet_iconos_version', RINGOPET_ICONOS_VERSION);
+    }
+
     $cacheados = get_transient('ringopet_categorias_iconos');
     if (false !== $cacheados) {
         return rest_ensure_response($cacheados);
@@ -180,8 +219,6 @@ function ringopet_categorias_iconos_endpoint() {
         return rest_ensure_response(new stdClass());
     }
 
-    // Íconos cargados como imagen de un ítem de menú que enlaza a la categoría (respaldo si
-    // el término no tiene su propio ícono cargado en WoodMart).
     $por_menu = [];
     foreach (wp_get_nav_menus() as $menu) {
         $items = wp_get_nav_menu_items($menu->term_id);
@@ -190,7 +227,7 @@ function ringopet_categorias_iconos_endpoint() {
         }
         foreach ($items as $item) {
             if ($item->object === 'product_cat' && $item->object_id && !isset($por_menu[(int) $item->object_id])) {
-                $icono = ringopet_icono_desde_meta(get_post_meta($item->ID));
+                $icono = ringopet_icono_de_item_menu($item->ID);
                 if ($icono) {
                     $por_menu[(int) $item->object_id] = $icono;
                 }
@@ -200,7 +237,7 @@ function ringopet_categorias_iconos_endpoint() {
 
     $resultado = [];
     foreach ($terminos as $termino) {
-        $icono = ringopet_icono_desde_meta(get_term_meta($termino->term_id)) ?: ($por_menu[$termino->term_id] ?? null);
+        $icono = ringopet_icono_categoria($termino->term_id) ?: ($por_menu[$termino->term_id] ?? null);
         if ($icono) {
             $resultado[$termino->term_id] = $icono;
         }
@@ -210,28 +247,14 @@ function ringopet_categorias_iconos_endpoint() {
     return rest_ensure_response($resultado);
 }
 
-// Los íconos casi no cambian, pero si se edita una categoría o un menú, no hay que esperar
-// una hora a que venza el transient solo.
+// Los íconos casi no cambian, pero si se edita o se crea una categoría, o se edita un menú,
+// no hay que esperar una hora a que venza el transient solo.
 add_action('edited_product_cat', function (): void {
+    delete_transient('ringopet_categorias_iconos');
+});
+add_action('created_product_cat', function (): void {
     delete_transient('ringopet_categorias_iconos');
 });
 add_action('wp_update_nav_menu', function (): void {
     delete_transient('ringopet_categorias_iconos');
-});
-
-/**
- * TEMPORAL: GET /wp-json/ringopet/v1/_debug-meta-categoria?id=726
- * Solo para encontrar las claves exactas que usa WoodMart para el ícono de categoría (ver
- * CLAUDE.md, tanda 1 de la revisión de diseño). Se borra en el próximo push, una vez
- * confirmadas las claves reales.
- */
-add_action('rest_api_init', function (): void {
-    register_rest_route('ringopet/v1', '/_debug-meta-categoria', [
-        'methods' => 'GET',
-        'permission_callback' => '__return_true',
-        'callback' => function (WP_REST_Request $peticion) {
-            $id = (int) $peticion->get_param('id');
-            return rest_ensure_response(get_term_meta($id ?: 726));
-        },
-    ]);
 });

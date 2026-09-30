@@ -263,15 +263,25 @@ Esta tanda tocó la estructura del sitio entero, no una página puntual.
 - **Íconos de categoría**: WoodMart no expone esto en ninguna API pública
   (ni term meta de `product_cat` ni los ítems de menú con imagen, como el
   de Conejos, son legibles sin sesión — `wp/v2/menu-items` devuelve 401 a
-  un visitante anónimo). Se agregó `GET /wp-json/ringopet/v1/categorias-iconos`
-  en `wp-plugin/ringopet-regenerar` (de solo lectura, sin datos sensibles):
-  revisa cualquier meta del término (o, si no hay, de un ítem de menú que
-  enlace a esa categoría) cuyo nombre contenga "icon" y la resuelve a una
-  URL de imagen — no se conocía de antes la clave exacta que usa WoodMart,
-  así que se buscó por patrón en vez de adivinar una constante. **Falta
-  instalar/activar esta versión del plugin en `prueba.ringopet.com.ar`**
-  para que devuelva algo: hoy el menú funciona igual, solo que sin íconos
-  (nunca se inventa uno ni queda un hueco, como se pidió).
+  un visitante anónimo). `GET /wp-json/ringopet/v1/categorias-iconos` en
+  `wp-plugin/ringopet-regenerar` (de solo lectura, sin datos sensibles) las
+  lee del lado del servidor. Claves reales de WoodMart, confirmadas con
+  `get_term_meta` sobre una categoría cargada de verdad (726, "Accesorios"
+  de Gatos): **`category_icon`** (Icono de categoría, el chico, el que usan
+  los menús) y **`category_icon_alt`** (Icono de categoría grande, respaldo
+  si falta el chico) — cada uno un array con `url` y/o `id` de adjunto.
+  Ojo con esto: `get_term_meta($id)` **sin** una clave puntual (pidiendo
+  "todo" el meta de una) no deserializa los valores — hay que pedir
+  `get_term_meta($id, 'category_icon', true)` clave por clave para recibir
+  el array ya armado en vez del string serializado crudo (`a:2:{...}`); el
+  primer intento fallaba por esto, no solo por no saber el nombre del
+  campo. Si ninguno de los dos está cargado, respaldo: la imagen de un
+  ítem de menú que enlace a esa categoría (clave de ese meta todavía sin
+  confirmar, se busca por patrón). La caché (`transient`, 1 hora) se limpia
+  sola al editar o crear una categoría, al editar un menú y, para el
+  primer pedido después de cada publicación (no hay hook de "se actualizó
+  el plugin" al subir por FTP), comparando `RINGOPET_ICONOS_VERSION` contra
+  una opción guardada.
 - **Solo categorías con stock**: `categoriasConStock()` en
   `src/lib/tienda/categorias.ts` calcula, a partir del catálogo con stock
   ya cacheado (no un fetch aparte), qué categorías (con sus ancestros)
